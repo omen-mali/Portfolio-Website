@@ -28,6 +28,15 @@ export const projects: Project[] = [
     image: "/images/projects/embedded-controller.svg",
   },
   {
+    slug: "arduino-temperature-pressure-sensor",
+    title: "Room Temperature & Pressure Sensor",
+    description:
+      "Embedded room temperature and pressure sensor on the Arduino UNO, using analog & digital sensors and LCD display. Work in progress: Implement IoT capabilities with ESP8266.",
+    tags: ["C", "Arduino UNO", "avr-gcc", "PlatformIO"],
+    github: "https://github.com/omen-mali/Arduino-Temperature-Pressure-Sensor",
+    image: "/images/projects/embedded-controller.svg",
+  },
+  {
     slug: "roadsense",
     title: "RoadSense — AI Road Damage Detection",
     description:

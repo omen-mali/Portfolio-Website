@@ -23,11 +23,11 @@ const SITE_URL = "https://momenali.com";
 
 export const metadata: Metadata = {
   title: {
-    default: "Momen Ali | Tech Enthusiast",
+    default: "Momen Ali | Software & Embedded Systems Developer",
     template: "%s | Momen Ali",
   },
   description:
-    "Embedded Software Developer & Systems Programmer specializing in QNX, Linux, C#, Python, and Java.",
+    "Embedded Software Developer & Systems Programmer specializing in QNX, Linux, C/C++, C#, Python, and Java.",
   metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",
