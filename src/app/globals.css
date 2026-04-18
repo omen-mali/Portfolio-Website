@@ -1,0 +1,339 @@
+@import "tailwindcss";
+
+:root {
+  /* Phase 1 background (near-black). Alt: #000000 (true black), #ffffff (light) */
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --muted: #a1a1aa;
+  --border: #27272a;
+  --card: #111111;
+  --accent-blue: #60a5fa;
+  --accent-pink: #f472b6;
+  --accent-purple: #a78bfa;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-card: var(--card);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Hide default cursor on devices with a fine pointer (mouse) */
+@media (pointer: fine) {
+  * {
+    cursor: none !important;
+  }
+}
+
+::selection {
+  background: rgba(167, 139, 250, 0.3);
+  color: #fafafa;
+}
+
+/* Hero text gradient — fluid left-right with vertical drift for organic flow.
+   Uses 300% background-size for wider color spectrum visibility. */
+@keyframes hero-gradient-flow {
+  0%   { background-position: 0% 40%; }
+  25%  { background-position: 50% 60%; }
+  50%  { background-position: 100% 45%; }
+  75%  { background-position: 50% 35%; }
+  100% { background-position: 0% 40%; }
+}
+
+/* Icon ring variant — fluid bottom-to-top sweep */
+@keyframes gradient-breathe-vertical {
+  0%   { background-position: 50% 100%; }
+  50%  { background-position: 50% 0%; }
+  100% { background-position: 50% 100%; }
+}
+
+/* Hero gradient title: diffuse violet/indigo glow */
+@keyframes hero-text-glow-breathe {
+  0%,
+  100% {
+    text-shadow:
+      0 0 12px rgba(139, 92, 246, 0.30),
+      0 0 28px rgba(99, 102, 241, 0.14),
+      0 0 52px rgba(139, 92, 246, 0.06);
+  }
+  50% {
+    text-shadow:
+      0 0 18px rgba(139, 92, 246, 0.45),
+      0 0 38px rgba(99, 102, 241, 0.22),
+      0 0 60px rgba(139, 92, 246, 0.08);
+  }
+}
+
+.hero-gradient-text-breathe {
+  background-size: 300% 300%;
+  animation:
+    hero-gradient-flow 8s ease-in-out infinite,
+    hero-text-glow-breathe 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Badge circular rotating ring */
+@keyframes badge-ring-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Ring layer */
+.badge-ring-layer {
+  position: absolute;
+  inset: -150%;
+  z-index: 0;
+  pointer-events: none;
+  animation: badge-ring-spin 4s linear infinite;
+}
+
+/* Single ring — JS sets --ring-dim on the element to animate the dark stop closed/open */
+.badge-ring-default {
+  background: conic-gradient(
+    from 0deg,
+    #c4b5fd,
+    #7c3aed,
+    #6366f1,
+    var(--ring-dim, #4f46e5),
+    #6366f1,
+    #7c3aed,
+    #c4b5fd
+  );
+}
+
+/* Navbar icon ring (real child element for gradient) */
+.icon-nav-ring {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 9999px;
+  animation: hero-ring-glow-breathe 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.icon-ring-gradient {
+  position: absolute;
+  inset: -150%;
+  background: conic-gradient(
+    from 0deg,
+    #c4b5fd,
+    #7c3aed,
+    #6366f1,
+    #4f46e5,
+    #6366f1,
+    #7c3aed,
+    #c4b5fd
+  );
+  animation: badge-ring-spin 6s linear infinite;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Navbar icon expand pop on click — applied to the whole icon wrapper */
+@keyframes icon-expand {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.icon-expanding {
+  animation: icon-expand var(--expand-duration, 1s) cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Navbar brand ring: soft pulsing violet/indigo glow */
+@keyframes hero-ring-glow-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 10px rgba(139, 92, 246, 0.28),
+      0 0 24px rgba(99, 102, 241, 0.10);
+  }
+  50% {
+    box-shadow:
+      0 0 14px rgba(139, 92, 246, 0.42),
+      0 0 32px rgba(99, 102, 241, 0.18);
+  }
+}
+
+/* Animated gradient text — no glow, just flowing color */
+.gradient-text-animate {
+  background-size: 300% 300%;
+  animation: hero-gradient-flow 8s ease-in-out infinite;
+}
+
+/* Icon gradient ring — animated gradient border, no glow */
+.icon-gradient-ring {
+  background-size: 300% 300%;
+  animation: gradient-breathe-vertical 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.hero-gradient-ring-breathe {
+  background-size: 300% 300%;
+  animation:
+    gradient-breathe-vertical 6s cubic-bezier(0.4, 0, 0.2, 1) infinite,
+    hero-ring-glow-breathe 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Glowing badge pulse — violet/indigo to match hero gradient
+   Old blue variant: rgba(96, 165, 250, ...) for 0.4/0.15 and 0.6/0.25 */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(139, 92, 246, 0.4), 0 0 20px rgba(99, 102, 241, 0.15); }
+  50%      { box-shadow: 0 0 12px rgba(139, 92, 246, 0.6), 0 0 30px rgba(99, 102, 241, 0.25); }
+}
+
+.glow-badge {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* Contact "Get in Touch" heading — soft gold breathing glow matching #FFE81F */
+@keyframes contact-heading-glow {
+  0%,
+  100% {
+    text-shadow:
+      0 0 12px rgba(255, 232, 31, 0.20),
+      0 0 28px rgba(255, 232, 31, 0.08),
+      0 0 52px rgba(255, 210, 0, 0.03);
+  }
+  50% {
+    text-shadow:
+      0 0 18px rgba(255, 232, 31, 0.35),
+      0 0 38px rgba(255, 232, 31, 0.14),
+      0 0 60px rgba(255, 210, 0, 0.06);
+  }
+}
+
+.contact-heading-glow {
+  animation: contact-heading-glow 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Viewport-triggered fade-in-up (replaces framer-motion FadeInUp) */
+.fade-in-up {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+.fade-in-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Blog prose styling */
+.prose-custom {
+  line-height: 1.8;
+  font-size: 1.0625rem;
+}
+.prose-custom h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  color: #fafafa;
+}
+.prose-custom h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  color: #fafafa;
+}
+.prose-custom h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+  color: #fafafa;
+}
+.prose-custom p {
+  margin-bottom: 1.25rem;
+  color: #a1a1aa;
+}
+.prose-custom strong {
+  color: #fafafa;
+  font-weight: 600;
+}
+.prose-custom em {
+  color: #d4d4d8;
+}
+.prose-custom a {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-custom a:hover {
+  color: #93c5fd;
+}
+.prose-custom ul,
+.prose-custom ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+  color: #a1a1aa;
+}
+.prose-custom ul {
+  list-style-type: disc;
+}
+.prose-custom ol {
+  list-style-type: decimal;
+}
+.prose-custom li {
+  margin-bottom: 0.5rem;
+}
+.prose-custom blockquote {
+  border-left: 3px solid #27272a;
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  color: #71717a;
+  font-style: italic;
+}
+.prose-custom code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.875em;
+}
+.prose-custom :not(pre) > code {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  color: #e4e4e7;
+}
+.prose-custom pre {
+  margin: 1.5rem 0;
+  border-radius: 0.75rem;
+  border: 1px solid #27272a;
+  overflow-x: auto;
+}
+.prose-custom pre > code {
+  display: block;
+  padding: 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+.prose-custom hr {
+  border-color: #27272a;
+  margin: 2rem 0;
+}

@@ -1,0 +1,181 @@
+---
+title: "RoadSense: Building an AI Road Damage Detection Pipeline"
+date: "2026-02-10"
+tags: ["python", "yolov8", "opencv", "hackathon", "ai"]
+excerpt: "How our team built a computer vision pipeline that processes dashcam footage into geolocated, severity-scored road damage reports — in 24 hours."
+---
+
+# RoadSense: Building an AI Road Damage Detection Pipeline
+
+At the MSA Hackathon at Carleton University, our 4-person team set out to solve a real municipal problem: **identifying and prioritizing road damage from dashcam footage**. As the Backend/Systems Lead, I was responsible for the inference engine, severity scoring, and the overall pipeline architecture.
+
+## The Problem
+
+Cities spend millions maintaining roads, but damage detection is still largely manual — crews drive around looking for potholes. We wanted to automate this: feed in dashcam video, get out a prioritized list of geolocated damage reports.
+
+## Architecture: A 6-Step Pipeline
+
+We designed a modular pipeline where each step has a clear input and output:
+
+1. **Frame Extraction** — Pull frames from dashcam video at configurable intervals
+2. **YOLO Inference** — Run YOLOv8 object detection on each frame batch
+3. **Severity Scoring** — Compute weighted damage severity scores
+4. **GPS Resolution** — Map frame timestamps to GPS coordinates
+5. **Spatial Deduplication** — Merge nearby detections of the same damage type
+6. **Supabase Upload** — Store results in PostgreSQL with full metadata
+
+This separation meant each team member could work on a stage independently.
+
+## YOLOv8 Inference with HuggingFace
+
+For the detection model, we used a pre-trained YOLOv8 model fine-tuned on road damage datasets. I built the inference engine to support both local `.pt` files and HuggingFace model repositories:
+
+```python
+from ultralytics import YOLO
+from huggingface_hub import hf_hub_download
+
+class ModelManager:
+    _instance = None
+    _model = None
+
+    @classmethod
+    def get_model(cls) -> YOLO:
+        if cls._model is None:
+            if config.LOCAL_MODEL_PATH.exists():
+                cls._model = YOLO(str(config.LOCAL_MODEL_PATH))
+            else:
+                # Download from HuggingFace
+                model_path = hf_hub_download(
+                    repo_id=config.HF_REPO_ID,
+                    filename=config.HF_MODEL_FILENAME
+                )
+                cls._model = YOLO(model_path)
+        return cls._model
+```
+
+The singleton pattern with lazy loading ensures the model is only loaded once, even across multiple pipeline runs.
+
+## Batch Processing with Error Recovery
+
+Processing frames one-by-one is slow. We batch 16 frames per inference call with configurable NMS (Non-Maximum Suppression) thresholds:
+
+```python
+def detect_batch(frames: list[np.ndarray]) -> list[list[Detection]]:
+    model = ModelManager.get_model()
+    try:
+        results = model.predict(
+            frames,
+            conf=config.CONFIDENCE_THRESHOLD,  # 0.25
+            iou=config.IOU_THRESHOLD,           # 0.45
+            verbose=False
+        )
+        return [parse_results(r) for r in results]
+    except Exception:
+        # Batch-level recovery: return partial results
+        return [detect_single(f) for f in frames]
+```
+
+The fallback to single-frame processing on batch failure was crucial — during the hackathon demo, one corrupted frame would have crashed the entire pipeline without it.
+
+## Class Normalization
+
+The model outputs 11 different labels (D00–D40 FHWA-style damage codes with case variants). We needed to map these to 4 human-readable categories:
+
+```python
+CLASS_MAP = {
+    "d00": "crack", "d10": "crack", "d20": "crack",
+    "d40": "pothole", "d30": "rut",
+    "d01": "crack", "d11": "crack",
+}
+
+def normalize_class(raw_label: str) -> str:
+    lower = raw_label.lower().strip()
+    if lower in CLASS_MAP:
+        return CLASS_MAP[lower]
+    # Substring fallback
+    for key, value in CLASS_MAP.items():
+        if key in lower:
+            return value
+    return "debris"  # default
+```
+
+The case-insensitive lookup with substring fallback handles model output inconsistencies gracefully.
+
+## Weighted Severity Scoring
+
+Not all damage is equal. A pothole on a highway is more critical than a hairline crack on a side street. We designed a weighted scoring formula:
+
+```
+severity = (area_ratio × 0.4) + (type_weight × 0.4) + (confidence × 0.2)
+```
+
+Where:
+- **area_ratio** = bounding box area / frame area (larger damage = higher score)
+- **type_weight** = per-type severity (pothole: 1.0, rut: 0.8, crack: 0.6, debris: 0.5)
+- **confidence** = model's detection confidence
+
+The final score maps to categorical labels:
+
+```python
+def score_to_label(score: float) -> str:
+    if score >= 0.75: return "critical"
+    if score >= 0.50: return "high"
+    if score >= 0.25: return "medium"
+    return "low"
+```
+
+This gives municipalities a clear priority ranking for repair crews.
+
+## Detection Visualization
+
+For the demo, I built an OpenCV-based visualizer that renders color-coded bounding boxes on frames:
+
+```python
+COLORS = {
+    "pothole": (0, 0, 255),    # Red
+    "crack":   (0, 165, 255),  # Orange
+    "rut":     (0, 255, 255),  # Yellow
+    "debris":  (255, 0, 0),    # Blue
+}
+
+def annotate_frame(frame: np.ndarray, detections: list) -> np.ndarray:
+    for det in detections:
+        color = COLORS.get(det.damage_type, (255, 255, 255))
+        cv2.rectangle(frame, det.bbox_tl, det.bbox_br, color, 2)
+        label = f"{det.damage_type} {det.confidence:.0%}"
+        cv2.putText(frame, label, det.bbox_tl,
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+    return frame
+```
+
+## Database Schema
+
+We used Supabase (hosted PostgreSQL) with a schema designed for spatial and temporal queries:
+
+```sql
+CREATE TABLE detections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    damage_type TEXT CHECK (damage_type IN ('pothole','crack','rut','debris')),
+    confidence FLOAT CHECK (confidence BETWEEN 0 AND 1),
+    severity TEXT CHECK (severity IN ('low','medium','high','critical')),
+    bbox JSONB NOT NULL,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    source TEXT NOT NULL,
+    status TEXT DEFAULT 'new' CHECK (status IN ('new','confirmed','resolved')),
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+Six indexes on source, type, severity, location, date, and status support the query patterns the frontend needs.
+
+## What I Learned
+
+This was my first time working with computer vision and ML inference in a time-constrained environment. Key takeaways:
+
+1. **Modular pipelines save hackathons.** Clear stage boundaries let 4 people work in parallel without merge conflicts.
+2. **Error recovery is not optional.** Even in a hackathon, one bad frame shouldn't crash the demo.
+3. **Pre-trained models are powerful.** We didn't train anything — we used a HuggingFace model and focused our energy on the pipeline and scoring logic.
+4. **Schema design matters early.** Getting the database schema right upfront meant the frontend team could start building queries immediately.
+
+The project reinforced that systems thinking applies everywhere — whether you're designing RTOS thread scheduling or an ML inference pipeline, the principles of modularity, error isolation, and clear interfaces remain the same.

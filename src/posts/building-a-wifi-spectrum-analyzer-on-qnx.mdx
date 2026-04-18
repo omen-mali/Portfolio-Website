@@ -1,0 +1,136 @@
+---
+title: "Building a Wi-Fi Spectrum Analyzer on QNX Neutrino"
+date: "2026-03-20"
+tags: ["qnx", "rtos", "embedded", "raspberry-pi", "posix"]
+excerpt: "How I built a multi-threaded real-time Wi-Fi analyzer on QNX Neutrino RTOS, targeting the Raspberry Pi 4 with POSIX pthreads and priority inheritance mutexes."
+---
+
+# Building a Wi-Fi Spectrum Analyzer on QNX Neutrino
+
+After a semester of studying real-time systems in theory, I wanted to build something that put those concepts into practice. The result: a **multi-threaded Wi-Fi spectrum analyzer** running on QNX Neutrino RTOS, targeting the Raspberry Pi 4.
+
+## Why QNX on a Raspberry Pi?
+
+QNX Neutrino is a microkernel RTOS used in automotive, medical, and industrial systems. The Raspberry Pi 4 (BCM2711, aarch64) has a QNX BSP available, making it an accessible platform for real-time development without needing expensive evaluation boards.
+
+The goal was simple: scan nearby Wi-Fi networks, analyze channel congestion, and recommend the optimal channel — all with **deterministic timing guarantees**.
+
+## Architecture: Producer-Consumer with Real-Time Scheduling
+
+The core design follows a **producer-consumer pattern** with two threads:
+
+```c
+// Scanner thread: high-priority, I/O-bound (SCHED_FIFO)
+// Analyzer thread: lower-priority, compute-bound (SCHED_RR)
+
+pthread_attr_t attr;
+struct sched_param param;
+
+pthread_attr_init(&attr);
+pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+
+// Scanner: SCHED_FIFO at priority 15
+param.sched_priority = SCANNER_PRIORITY;
+pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+pthread_attr_setschedparam(&attr, &param);
+pthread_create(&scanner_tid, &attr, scanner_thread, &shared);
+```
+
+**SCHED_FIFO** for the scanner ensures it runs to completion (or blocks on I/O) without being preempted by equal-priority threads. **SCHED_RR** for the analyzer allows fair sharing if multiple compute threads exist.
+
+The key detail: `PTHREAD_EXPLICIT_SCHED`. Without this, the thread inherits the parent's scheduling — which defeats the purpose of setting priorities explicitly.
+
+## Preventing Priority Inversion
+
+The scanner and analyzer share a scan-results buffer. Without care, a classic priority inversion scenario emerges: the high-priority scanner blocks on a mutex held by the lower-priority analyzer.
+
+The fix is **priority inheritance**:
+
+```c
+pthread_mutexattr_t mattr;
+pthread_mutexattr_init(&mattr);
+pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT);
+pthread_mutex_init(&shared.lock, &mattr);
+```
+
+With `PTHREAD_PRIO_INHERIT`, when the scanner blocks on the mutex, the analyzer temporarily inherits the scanner's priority — eliminating unbounded priority inversion.
+
+## No malloc in the Real-Time Path
+
+One rule I enforced throughout: **no dynamic memory allocation in time-critical paths**. `malloc` is non-deterministic — it can take microseconds or milliseconds depending on heap fragmentation.
+
+Instead, I used a fixed-size, pre-allocated scan buffer:
+
+```c
+#define MAX_SCAN_RESULTS 64
+
+typedef struct {
+    scan_entry_t entries[MAX_SCAN_RESULTS];
+    int count;
+    pthread_mutex_t lock;
+    pthread_cond_t data_ready;
+} shared_state_t;
+```
+
+The buffer is allocated once at startup and reused for every scan cycle.
+
+## Signal Handling in Multi-Threaded Code
+
+Handling `SIGINT`/`SIGTERM` correctly in multi-threaded programs is notoriously tricky. Signal handlers are async-signal-unsafe — calling most functions from a handler is undefined behavior.
+
+The solution: **block signals in all threads**, then use `sigwait()` in the main thread:
+
+```c
+sigset_t sigset;
+sigemptyset(&sigset);
+sigaddset(&sigset, SIGINT);
+sigaddset(&sigset, SIGTERM);
+pthread_sigmask(SIG_BLOCK, &sigset, NULL);
+
+// In main thread after creating workers:
+int sig;
+sigwait(&sigset, &sig);
+// Clean shutdown: cancel threads, join, cleanup
+```
+
+This gives you synchronous, predictable signal handling — no race conditions, no async-signal-safety concerns.
+
+## Interfacing with wpa_supplicant
+
+For Wi-Fi scanning, I integrated with `wpa_supplicant` through its control interface (`libwpactrl`), issuing `SCAN` and `SCAN_RESULTS` commands over a Unix domain socket:
+
+```c
+wpa_ctrl_request(ctrl, "SCAN", 4, reply, &reply_len, NULL);
+// Wait for scan to complete...
+wpa_ctrl_request(ctrl, "SCAN_RESULTS", 12, reply, &reply_len, NULL);
+// Parse tab-separated results into scan buffer
+```
+
+## Timing: drift-free periodic scanning
+
+For periodic scanning, I used `clock_nanosleep` with `CLOCK_MONOTONIC` instead of `sleep()`:
+
+```c
+struct timespec next;
+clock_gettime(CLOCK_MONOTONIC, &next);
+
+while (running) {
+    next.tv_sec += SCAN_INTERVAL_SEC;
+    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);
+    perform_scan(&shared);
+}
+```
+
+Using absolute time with `CLOCK_MONOTONIC` prevents drift accumulation — each scan starts exactly `SCAN_INTERVAL_SEC` after the previous one, regardless of processing time.
+
+## Lessons Learned
+
+1. **Explicit scheduling matters.** Forgetting `PTHREAD_EXPLICIT_SCHED` silently inherits the parent's policy, making your priority assignments meaningless.
+
+2. **Priority inheritance isn't optional.** In any real-time system with shared resources, unbounded priority inversion will eventually bite you.
+
+3. **Cross-compilation adds friction.** Setting up the QNX toolchain (`qcc`/`q++`) with CMake required careful configuration of `QNX_HOST` and `QNX_TARGET` variables.
+
+4. **Serial debugging is your friend.** UART was invaluable for debugging when SSH wasn't available during early boot.
+
+This project reinforced that real-time programming isn't just about "fast" — it's about **predictable**. Every design decision, from scheduling policies to memory allocation, serves that goal.
