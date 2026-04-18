@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   getTodaysQuote,
@@ -25,13 +25,37 @@ const HOLD      = 2.5;
 const FADE_OUT  = 0.8;
 const CYCLE     = FADE_IN + HOLD + FADE_OUT; // 4.1 s
 
+// SSR-safe "has favourite" subscription.
+// Server always reports `false` so the Favourite button is omitted from the
+// server render. After hydration, `getFavSnapshot` reads localStorage and
+// the button appears if a favourite exists. Also listens for cross-tab
+// updates via the `storage` event.
+const favListeners = new Set<() => void>();
+function notifyFavChange() {
+  favListeners.forEach((fn) => fn());
+}
+const subscribeFav = (cb: () => void) => {
+  favListeners.add(cb);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === "favouriteQuote") cb();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    favListeners.delete(cb);
+    window.removeEventListener("storage", onStorage);
+  };
+};
+const getFavSnapshot = () => !!getFavouriteQuote();
+const getFavServerSnapshot = () => false;
+
 export default function QuoteOverlay() {
   const [overlay, setOverlay] = useState<OverlayState>({
     open: false, quote: "", mode: "daily", isFav: false,
   });
-  // Lazy initializer reads localStorage once — avoids setState-in-effect
-  const [hasFav, setHasFav] = useState(() =>
-    typeof window !== "undefined" && !!getFavouriteQuote()
+  const hasFav = useSyncExternalStore(
+    subscribeFav,
+    getFavSnapshot,
+    getFavServerSnapshot,
   );
   const [showLoopInput, setShowLoop]  = useState(false);
   const [loopInputValue, setLoopVal]  = useState("");
@@ -57,8 +81,8 @@ export default function QuoteOverlay() {
   function toggleFav() {
     if (!quote) return;
     setFavouriteQuote(quote);
+    notifyFavChange();
     setOverlay((prev) => ({ ...prev, isFav: true }));
-    setHasFav(true);
   }
 
   function startLoop(e: React.FormEvent) {

@@ -1,26 +1,44 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { getTodaysQuote } from "@/lib/quotes";
 
 const SPLASH_DURATION = 2500;
 const FADE_DURATION = 0.8;
 
+// SSR-safe read of the "splash already shown" session flag.
+// `getServerSnapshot` forces the server render to treat the splash as
+// already-shown so no splash markup is emitted during SSR. After hydration,
+// `getSnapshot` reads the real sessionStorage value on the client and
+// React re-renders with the correct state — no hydration mismatch.
+const subscribeShown = () => () => {};
+const getShownSnapshot = () =>
+  sessionStorage.getItem("splashShown") !== null;
+const getShownServerSnapshot = () => true;
+
 export default function SplashScreen() {
-  // Lazy initializers read browser APIs once — avoids setState-in-effect
-  const [visible, setVisible] = useState(() =>
-    typeof window === "undefined" || !sessionStorage.getItem("splashShown")
+  const alreadyShown = useSyncExternalStore(
+    subscribeShown,
+    getShownSnapshot,
+    getShownServerSnapshot,
   );
-  const [quote] = useState(() =>
-    typeof window !== "undefined" && !sessionStorage.getItem("splashShown")
-      ? getTodaysQuote()
-      : ""
-  );
+  const [dismissed, setDismissed] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const visible = !alreadyShown && !dismissed;
+  // getTodaysQuote() is deterministic and cheap; it only runs on the client
+  // because `visible` is false during SSR (alreadyShown=true server-side).
+  const quote = visible ? getTodaysQuote() : "";
+
   const dismiss = useCallback(() => {
-    setVisible(false);
+    setDismissed(true);
     sessionStorage.setItem("splashShown", "true");
     if (timerRef.current) {
       clearTimeout(timerRef.current);
