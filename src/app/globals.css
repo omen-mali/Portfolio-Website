@@ -197,6 +197,24 @@ html {
   animation: glow-pulse 3s ease-in-out infinite;
 }
 
+/* Large Jedi emblem — outer violet glow pulse, timed to match the badge */
+@keyframes jedi-emblem-glow-pulse {
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 10px rgba(139, 92, 246, 0.35))
+      drop-shadow(0 0 26px rgba(99, 102, 241, 0.18));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 16px rgba(139, 92, 246, 0.55))
+      drop-shadow(0 0 38px rgba(99, 102, 241, 0.28));
+  }
+}
+
+.jedi-emblem-glow {
+  animation: jedi-emblem-glow-pulse 3s ease-in-out infinite;
+}
+
 /* Contact "Get in Touch" heading — soft gold breathing glow matching #FFE81F */
 @keyframes contact-heading-glow {
   0%,

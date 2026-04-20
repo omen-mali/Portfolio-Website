@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import GradientText from "@/components/ui/GradientText";
 import Typewriter from "@/components/ui/Typewriter";
 import QuoteOverlay from "@/components/splash/QuoteOverlay";
@@ -20,16 +20,52 @@ const QUICK_SKILLS = [
   "Real-Time Operating Systems",
 ];
 
+const BADGE_EMBLEM_INTERVAL = 3000; // ms between sparkle ↔ Jedi emblem swap
+const BADGE_EMBLEM_FADE = 0.6;      // crossfade duration (s)
+
 export default function Hero() {
   const [badgeExpanded, setBadgeExpanded] = useState(false);
+  const [emblemIdx, setEmblemIdx] = useState(0);
   const ringRef = useRef<HTMLSpanElement>(null);
   const rafRef = useRef<number>(0);
 
   const handleBadgeClick = useCallback(() => {
     if (badgeExpanded) return;
+    // Snap the page to the top *instantly* (not smooth) so the emblem's
+    // expansion happens at a known scroll position. A smooth scroll would
+    // race the height animation and leave the badge mid-screen.
+    if (typeof window !== "undefined") {
+      window.scrollTo(0, 0);
+    }
     setBadgeExpanded(true);
-    setTimeout(() => setBadgeExpanded(false), 2000);
+    // Hold the expanded state (and the large emblem) for 4s before collapsing.
+    setTimeout(() => setBadgeExpanded(false), 4000);
   }, [badgeExpanded]);
+
+  // While the badge is expanded, hard-pin the scroll position to the top.
+  // The emblem's reveal/collapse changes the page's height and the hero's
+  // centered flex layout, both of which can otherwise nudge the viewport
+  // off the top mid-animation. A rAF loop snaps `scrollY` back to 0 every
+  // frame for the full 4s expanded window, accounting for the emblem's
+  // distance below the badge as it pushes the title down.
+  useEffect(() => {
+    if (!badgeExpanded) return;
+    let rafId = 0;
+    const pin = () => {
+      if (window.scrollY !== 0) window.scrollTo(0, 0);
+      rafId = requestAnimationFrame(pin);
+    };
+    rafId = requestAnimationFrame(pin);
+    return () => cancelAnimationFrame(rafId);
+  }, [badgeExpanded]);
+
+  useEffect(() => {
+    const id = setInterval(
+      () => setEmblemIdx((i) => (i === 0 ? 1 : 0)),
+      BADGE_EMBLEM_INTERVAL,
+    );
+    return () => clearInterval(id);
+  }, []);
 
   // Animate the ring's dark stop between #4f46e5 (gap) and #c4b5fd (joined)
   useEffect(() => {
@@ -82,7 +118,7 @@ export default function Hero() {
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1, duration: 0.5 }}
+          transition={{ delay: 0.15, duration: 0.5 }}
           className="mb-6 flex justify-center"
         >
           <motion.span
@@ -101,42 +137,174 @@ export default function Hero() {
             {/* Single ring — dark stop (#4f46e5) animated via --ring-dim to close/open gap */}
             <span ref={ringRef} className="badge-ring-layer badge-ring-default" aria-hidden="true" />
             <span className="relative z-[1] inline-flex items-center gap-2.5 rounded-full bg-[#0a0a0a] px-5 py-2 text-sm font-medium text-violet-400">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                className="text-violet-400"
-              >
-                <defs>
-                  <linearGradient id="sparkle-grad-anim" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="24">
-                    <stop offset="0%" stopColor="#c4b5fd">
-                      <animate attributeName="stopColor" values="#c4b5fd;#6366f1;#7c3aed;#c4b5fd" dur="4s" repeatCount="indefinite" />
-                    </stop>
-                    <stop offset="50%" stopColor="#7c3aed">
-                      <animate attributeName="stopColor" values="#7c3aed;#c4b5fd;#6366f1;#7c3aed" dur="4s" repeatCount="indefinite" />
-                    </stop>
-                    <stop offset="100%" stopColor="#6366f1">
-                      <animate attributeName="stopColor" values="#6366f1;#7c3aed;#c4b5fd;#6366f1" dur="4s" repeatCount="indefinite" />
-                    </stop>
-                  </linearGradient>
-                </defs>
-                <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" stroke="url(#sparkle-grad-anim)" />
-                <path d="M20 3v4" stroke="url(#sparkle-grad-anim)" />
-                <path d="M22 5h-4" stroke="url(#sparkle-grad-anim)" />
-                <path d="M4 17v2" stroke="url(#sparkle-grad-anim)" />
-                <path d="M5 18H3" stroke="url(#sparkle-grad-anim)" />
-              </svg>
+              <span className="relative inline-flex h-6 w-6 shrink-0">
+                <motion.svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  className="absolute inset-0 h-full w-full text-violet-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  animate={{ opacity: emblemIdx === 0 ? 1 : 0 }}
+                  transition={{ duration: BADGE_EMBLEM_FADE, ease: "easeInOut" }}
+                >
+                  <defs>
+                    <linearGradient id="sparkle-grad-anim" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="24">
+                      <stop offset="0%" stopColor="#8b5cf6">
+                        <animate attributeName="stop-color" values="#8b5cf6;#6366f1;#7c3aed;#8b5cf6" dur="4s" repeatCount="indefinite" />
+                      </stop>
+                      <stop offset="50%" stopColor="#7c3aed">
+                        <animate attributeName="stop-color" values="#7c3aed;#8b5cf6;#6366f1;#7c3aed" dur="4s" repeatCount="indefinite" />
+                      </stop>
+                      <stop offset="100%" stopColor="#6366f1">
+                        <animate attributeName="stop-color" values="#6366f1;#7c3aed;#8b5cf6;#6366f1" dur="4s" repeatCount="indefinite" />
+                      </stop>
+                    </linearGradient>
+                  </defs>
+                  <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" stroke="url(#sparkle-grad-anim)" />
+                  <path d="M20 3v4" stroke="url(#sparkle-grad-anim)" />
+                  <path d="M22 5h-4" stroke="url(#sparkle-grad-anim)" />
+                  <path d="M4 17v2" stroke="url(#sparkle-grad-anim)" />
+                  <path d="M5 18H3" stroke="url(#sparkle-grad-anim)" />
+                </motion.svg>
+                <motion.svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 590.60175 600"
+                  className="absolute inset-0 h-full w-full"
+                  aria-hidden="true"
+                  animate={{ opacity: emblemIdx === 1 ? 1 : 0 }}
+                  transition={{ duration: BADGE_EMBLEM_FADE, ease: "easeInOut" }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="jedi-badge-grad"
+                      gradientUnits="userSpaceOnUse"
+                      x1="0"
+                      y1="0"
+                      x2="590.60175"
+                      y2="600"
+                    >
+                      <stop offset="0%" stopColor="#8b5cf6">
+                        <animate attributeName="stop-color" values="#8b5cf6;#6366f1;#7c3aed;#8b5cf6" dur="4s" repeatCount="indefinite" />
+                      </stop>
+                      <stop offset="50%" stopColor="#7c3aed">
+                        <animate attributeName="stop-color" values="#7c3aed;#8b5cf6;#6366f1;#7c3aed" dur="4s" repeatCount="indefinite" />
+                      </stop>
+                      <stop offset="100%" stopColor="#6366f1">
+                        <animate attributeName="stop-color" values="#6366f1;#7c3aed;#8b5cf6;#6366f1" dur="4s" repeatCount="indefinite" />
+                      </stop>
+                      {/* Rotate the gradient around the viewBox center to create
+                          a moving gradient ring effect on both fill and stroke. */}
+                      <animateTransform
+                        attributeName="gradientTransform"
+                        type="rotate"
+                        from="0 295 300"
+                        to="360 295 300"
+                        dur="10s"
+                        repeatCount="indefinite"
+                      />
+                    </linearGradient>
+                  </defs>
+                  <g transform="matrix(1.25,0,0,-1.25,831.48097,645.41878)">
+                    <g transform="matrix(2.5676375,0,0,-2.5676375,-860.6843,-186.96836)">
+                      <path
+                        fill="url(#jedi-badge-grad)"
+                        fillRule="evenodd"
+                        d="M 171.38577,-146.87499 C 173.42419,-149.84989 184.30064,-165.72444 184.30064,-165.72444 C 184.30064,-165.72444 176.01148,-142.92687 176.01148,-142.92687 C 176.01148,-142.92687 201.70967,-139.19518 201.70967,-139.19518 C 201.70967,-139.19518 176.01148,-135.4649 176.01148,-135.4649 C 176.01148,-135.4649 185.95925,-115.98313 185.95925,-115.98313 C 185.95925,-115.98313 173.54833,-129.03133 171.79458,-130.87454 C 172.51744,-102.62513 172.69532,-95.67241 172.69532,-95.67241 C 172.69532,-95.67241 236.11292,-125.10301 200.88072,-190.17991 C 200.88072,-190.17991 244.81796,-238.67709 205.02618,-268.5211 C 205.02618,-268.5211 273.00372,-227.48554 229.89613,-157.02046 C 229.89613,-157.02046 265.54245,-191.83746 246.89034,-227.07107 C 246.89034,-227.07107 279.22085,-181.47522 239.84355,-131.32014 C 239.84355,-131.32014 250.62062,-137.95316 260.15391,-163.23759 C 260.15391,-163.23759 253.19978,-87.965715 168.98591,-86.978323 C 168.98591,-86.968422 168.98591,-86.968422 168.98591,-86.968422 C 168.70511,-86.968422 168.42608,-86.968422 168.14635,-86.969841 C 167.86767,-86.968422 167.58759,-86.968422 167.3075,-86.968422 C 167.3075,-86.968422 167.3075,-86.968422 167.3075,-86.978323 C 83.093981,-87.965715 76.139847,-163.23759 76.139847,-163.23759 C 85.672786,-137.95316 96.449146,-131.32014 96.449146,-131.32014 C 57.07255,-181.47522 89.403065,-227.07107 89.403065,-227.07107 C 70.750247,-191.83746 106.39798,-157.02046 106.39798,-157.02046 C 63.289688,-227.48554 131.26651,-268.5211 131.26651,-268.5211 C 91.475437,-238.67709 135.41268,-190.17991 135.41268,-190.17991 C 100.18085,-125.10301 163.59843,-95.67241 163.59843,-95.67241 C 163.59843,-95.67241 163.77525,-102.62513 164.49811,-130.87454 C 162.74402,-129.03133 150.3338,-115.98313 150.3338,-115.98313 C 150.3338,-115.98313 160.28121,-135.4649 160.28121,-135.4649 C 160.28121,-135.4649 134.58373,-139.19518 134.58373,-139.19518 C 134.58373,-139.19518 160.28121,-142.92687 160.28121,-142.92687 C 160.28121,-142.92687 151.99312,-165.72444 151.99312,-165.72444 C 151.99312,-165.72444 162.8685,-149.84989 164.90693,-146.87499 C 165.83066,-182.95842 168.12088,-272.48974 168.1322,-272.91235 C 168.13645,-273.90504 168.13645,-273.9107 168.13645,-273.9107 C 168.13645,-273.9107 168.13645,-273.90964 168.14635,-273.49799 C 168.15731,-273.90964 168.15731,-273.9107 168.15731,-273.9107 C 168.15731,-273.9107 168.15731,-273.90504 168.16156,-272.91235 C 168.17995,-272.20612 170.46451,-182.87637 171.38577,-146.87499 C 171.38577,-146.87499 171.38577,-146.87499 171.38577,-146.87499 z"
+                      />
+                    </g>
+                  </g>
+                </motion.svg>
+              </span>
               Trust in the Force
             </span>
           </motion.span>
         </motion.div>
+
+        {/* Large Jedi Order emblem — slots in below the badge while it's
+            expanded, pushing the title and subsequent elements down. The
+            wrapper animates its `height` from 0 → auto so other elements
+            shift smoothly; on exit it collapses back, keeping the layout
+            in sync with the badge's expand/contract cycle. The emblem is
+            outline-only with a rotating gradient stroke (no fill) and a
+            violet glow — visually mirroring the badge ring without its
+            splitting effect. */}
+        <AnimatePresence initial={false}>
+          {badgeExpanded && (
+            <motion.div
+              key="jedi-large-emblem"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.5, ease: [0.22, 0.61, 0.36, 1] }}
+              style={{ overflow: "hidden" }}
+              aria-hidden="true"
+            >
+              <div className="flex justify-center pb-6">
+                {/* `overflow="visible"` is required because the path's bottom
+                    wings sit right at viewBox y=600, and `vectorEffect=
+                    "non-scaling-stroke"` paints a constant 3px stroke whose
+                    lower half would otherwise be clipped at the viewBox
+                    edge — making the rounded wings look flat. */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 590.60175 600"
+                  overflow="visible"
+                  className="jedi-emblem-glow h-40 w-40 md:h-56 md:w-56"
+                >
+                  <defs>
+                    {/* Wave-pattern gradient stops (light → dark → light) +
+                        rotation give the path stroke the same shimmering
+                        sweep the ring backdrop used to provide. No SMIL stop
+                        cycling — the rotation alone carries the effect. */}
+                    <linearGradient
+                      id="jedi-emblem-grad"
+                      gradientUnits="userSpaceOnUse"
+                      x1="0"
+                      y1="0"
+                      x2="590.60175"
+                      y2="600"
+                    >
+                      <stop offset="0%" stopColor="#8b5cf6" />
+                      <stop offset="25%" stopColor="#7c3aed" />
+                      <stop offset="50%" stopColor="#6366f1" />
+                      <stop offset="75%" stopColor="#7c3aed" />
+                      <stop offset="100%" stopColor="#8b5cf6" />
+                      {/* LARGE EMBLEM GRADIENT SPEED — `dur` controls how
+                          fast the stroke's shimmer sweeps around the crest.
+                          One full rotation per `dur`. Larger = slower. */}
+                      <animateTransform
+                        attributeName="gradientTransform"
+                        type="rotate"
+                        from="0 295 300"
+                        to="360 295 300"
+                        dur="8s"
+                        repeatCount="indefinite"
+                      />
+                    </linearGradient>
+                  </defs>
+                  <g transform="matrix(1.25,0,0,-1.25,831.48097,645.41878)">
+                    <g transform="matrix(2.5676375,0,0,-2.5676375,-860.6843,-186.96836)">
+                      <path
+                        fill="none"
+                        fillRule="evenodd"
+                        stroke="url(#jedi-emblem-grad)"
+                        strokeWidth="3"
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                        d="M 171.38577,-146.87499 C 173.42419,-149.84989 184.30064,-165.72444 184.30064,-165.72444 C 184.30064,-165.72444 176.01148,-142.92687 176.01148,-142.92687 C 176.01148,-142.92687 201.70967,-139.19518 201.70967,-139.19518 C 201.70967,-139.19518 176.01148,-135.4649 176.01148,-135.4649 C 176.01148,-135.4649 185.95925,-115.98313 185.95925,-115.98313 C 185.95925,-115.98313 173.54833,-129.03133 171.79458,-130.87454 C 172.51744,-102.62513 172.69532,-95.67241 172.69532,-95.67241 C 172.69532,-95.67241 236.11292,-125.10301 200.88072,-190.17991 C 200.88072,-190.17991 244.81796,-238.67709 205.02618,-268.5211 C 205.02618,-268.5211 273.00372,-227.48554 229.89613,-157.02046 C 229.89613,-157.02046 265.54245,-191.83746 246.89034,-227.07107 C 246.89034,-227.07107 279.22085,-181.47522 239.84355,-131.32014 C 239.84355,-131.32014 250.62062,-137.95316 260.15391,-163.23759 C 260.15391,-163.23759 253.19978,-87.965715 168.98591,-86.978323 C 168.98591,-86.968422 168.98591,-86.968422 168.98591,-86.968422 C 168.70511,-86.968422 168.42608,-86.968422 168.14635,-86.969841 C 167.86767,-86.968422 167.58759,-86.968422 167.3075,-86.968422 C 167.3075,-86.968422 167.3075,-86.968422 167.3075,-86.978323 C 83.093981,-87.965715 76.139847,-163.23759 76.139847,-163.23759 C 85.672786,-137.95316 96.449146,-131.32014 96.449146,-131.32014 C 57.07255,-181.47522 89.403065,-227.07107 89.403065,-227.07107 C 70.750247,-191.83746 106.39798,-157.02046 106.39798,-157.02046 C 63.289688,-227.48554 131.26651,-268.5211 131.26651,-268.5211 C 91.475437,-238.67709 135.41268,-190.17991 135.41268,-190.17991 C 100.18085,-125.10301 163.59843,-95.67241 163.59843,-95.67241 C 163.59843,-95.67241 163.77525,-102.62513 164.49811,-130.87454 C 162.74402,-129.03133 150.3338,-115.98313 150.3338,-115.98313 C 150.3338,-115.98313 160.28121,-135.4649 160.28121,-135.4649 C 160.28121,-135.4649 134.58373,-139.19518 134.58373,-139.19518 C 134.58373,-139.19518 160.28121,-142.92687 160.28121,-142.92687 C 160.28121,-142.92687 151.99312,-165.72444 151.99312,-165.72444 C 151.99312,-165.72444 162.8685,-149.84989 164.90693,-146.87499 C 165.83066,-182.95842 168.12088,-272.48974 168.1322,-272.91235 C 168.13645,-273.90504 168.13645,-273.9107 168.13645,-273.9107 C 168.13645,-273.9107 168.13645,-273.90964 168.14635,-273.49799 C 168.15731,-273.90964 168.15731,-273.9107 168.15731,-273.9107 C 168.15731,-273.9107 168.15731,-273.90504 168.16156,-272.91235 C 168.17995,-272.20612 170.46451,-182.87637 171.38577,-146.87499 C 171.38577,-146.87499 171.38577,-146.87499 171.38577,-146.87499 z"
+                      />
+                    </g>
+                  </g>
+                </svg>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <GradientText
           as="h1"

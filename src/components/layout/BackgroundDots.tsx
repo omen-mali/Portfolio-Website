@@ -6,8 +6,11 @@ import { useBackground } from "./BackgroundProvider";
 const DOT_SPACING = 28;   // px between dots
 const DOT_RADIUS  = 1;    // base dot radius
 const BASE_ALPHA  = 0.12; // resting dot opacity
-const GLOW_RADIUS = 20;  // px around cursor that illuminates dots
-const GLOW_ALPHA  = 0.55; // max additional alpha at cursor centre
+const GLOW_RADIUS = 16;  // px around cursor that illuminates dots
+const GLOW_ALPHA  = 0.38; // max additional alpha at cursor centre
+const AMBIENT_RADIUS = 240; // ambient halo radius around cursor
+const AMBIENT_ALPHA_INNER = 0.018; // ambient halo opacity at centre
+const AMBIENT_ALPHA_MID   = 0.006; // ambient halo opacity at mid-stop
 
 export default function BackgroundDots() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -68,14 +71,19 @@ export default function BackgroundDots() {
         return;
       }
 
-      // ── Ambient white glow — large radius, near-zero opacity, no hard edge ─
+      // ── Ambient white glow — tight radius, near-zero opacity, no hard edge ─
       // Uses a 3-stop gradient so the falloff is very gradual (no visible circle).
-      const bgGrad = ctx.createRadialGradient(mx, my, 0, mx, my, 420);
-      bgGrad.addColorStop(0,   "rgba(255,255,255,0.028)");
-      bgGrad.addColorStop(0.45,"rgba(255,255,255,0.010)");
+      const bgGrad = ctx.createRadialGradient(mx, my, 0, mx, my, AMBIENT_RADIUS);
+      bgGrad.addColorStop(0,   `rgba(255,255,255,${AMBIENT_ALPHA_INNER})`);
+      bgGrad.addColorStop(0.45,`rgba(255,255,255,${AMBIENT_ALPHA_MID})`);
       bgGrad.addColorStop(1,   "rgba(255,255,255,0)");
       ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, W, H);
+      ctx.fillRect(
+        Math.max(0, mx - AMBIENT_RADIUS),
+        Math.max(0, my - AMBIENT_RADIUS),
+        AMBIENT_RADIUS * 2,
+        AMBIENT_RADIUS * 2,
+      );
 
       // ── Pass 2: illuminate dots within glow radius (bounding-box scan) ────
       const minC = Math.max(0, Math.floor((mx - GLOW_RADIUS) / DOT_SPACING));
