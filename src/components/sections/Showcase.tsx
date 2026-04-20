@@ -35,13 +35,20 @@ export default function Showcase() {
         </FadeInUp>
 
         {/* Tab buttons */}
+        {/* Tab buttons — on narrow phones (<sm), the 4 tab labels together
+            exceed the container's inner width because each button's
+            intrinsic min-width equals its text. We let the row wrap and
+            center, so any tab that won't fit on the first row drops to a
+            second row centered beneath. On sm+ the row stays single with
+            `flex-1` giving each tab equal width, matching the original
+            desktop look. */}
         <FadeInUp delay={0.1}>
-          <div className="mt-8 flex gap-1 rounded-xl border border-border bg-card p-1">
+          <div className="mt-8 flex flex-wrap justify-center gap-1 rounded-xl border border-border bg-card p-1 sm:flex-nowrap sm:justify-start">
             {TABS.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`relative flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`relative rounded-lg px-4 py-2.5 text-sm font-medium transition-colors sm:flex-1 ${
                   activeTab === tab
                     ? "text-foreground"
                     : "text-muted hover:text-foreground"

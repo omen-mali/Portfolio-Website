@@ -198,7 +198,17 @@ export default function QuoteOverlay() {
         </AnimatePresence>
       </div>
 
-      {/* ── Quote overlay ────────────────────────────────────────────────── */}
+      {/* ── Quote overlay ──────────────────────────────────────────────────
+          Perf notes:
+          - No `backdrop-blur-sm`: backdrop-filter forces the browser to
+            snapshot and re-blur the entire viewport every frame while the
+            fade plays, which is the dominant cost on mobile GPUs. The bg
+            is already fully opaque, so the blur wasn't visually doing
+            anything useful.
+          - Durations halved (0.4s → 0.2s) and the 0.1s inner delay
+            removed, so the click-to-readable latency drops from ~500ms
+            to ~200ms. The quote text is what the user is here for — it
+            should appear promptly, not slide in leisurely. */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -206,8 +216,8 @@ export default function QuoteOverlay() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a0a0a]/95 backdrop-blur-sm px-8"
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a0a0a] px-8"
             onClick={() => setOverlay((prev) => ({ ...prev, open: false }))}
             role="dialog"
             aria-modal="true"
@@ -217,7 +227,7 @@ export default function QuoteOverlay() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
+              transition={{ duration: 0.2 }}
               className="max-w-2xl text-center"
               onClick={(e) => e.stopPropagation()}
             >

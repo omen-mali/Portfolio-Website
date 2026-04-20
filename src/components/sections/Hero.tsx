@@ -31,32 +31,16 @@ export default function Hero() {
 
   const handleBadgeClick = useCallback(() => {
     if (badgeExpanded) return;
-    // Snap the page to the top *instantly* (not smooth) so the emblem's
-    // expansion happens at a known scroll position. A smooth scroll would
-    // race the height animation and leave the badge mid-screen.
-    if (typeof window !== "undefined") {
-      window.scrollTo(0, 0);
+    // One-shot smooth scroll to the top, mirroring how the navbar brand
+    // icon scrolls to `#hero`. Fires once on click — the user is then
+    // free to scroll wherever they like while the emblem is expanded;
+    // we no longer pin the viewport for the full 4s window.
+    if (typeof document !== "undefined") {
+      document.getElementById("hero")?.scrollIntoView({ behavior: "smooth" });
     }
     setBadgeExpanded(true);
     // Hold the expanded state (and the large emblem) for 4s before collapsing.
     setTimeout(() => setBadgeExpanded(false), 4000);
-  }, [badgeExpanded]);
-
-  // While the badge is expanded, hard-pin the scroll position to the top.
-  // The emblem's reveal/collapse changes the page's height and the hero's
-  // centered flex layout, both of which can otherwise nudge the viewport
-  // off the top mid-animation. A rAF loop snaps `scrollY` back to 0 every
-  // frame for the full 4s expanded window, accounting for the emblem's
-  // distance below the badge as it pushes the title down.
-  useEffect(() => {
-    if (!badgeExpanded) return;
-    let rafId = 0;
-    const pin = () => {
-      if (window.scrollY !== 0) window.scrollTo(0, 0);
-      rafId = requestAnimationFrame(pin);
-    };
-    rafId = requestAnimationFrame(pin);
-    return () => cancelAnimationFrame(rafId);
   }, [badgeExpanded]);
 
   useEffect(() => {
