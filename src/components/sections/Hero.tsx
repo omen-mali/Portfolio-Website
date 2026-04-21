@@ -25,24 +25,72 @@ const BADGE_EMBLEM_FADE = 0.6;      // crossfade duration (s)
 
 export default function Hero() {
   const [badgeExpanded, setBadgeExpanded] = useState(false);
+  // 0 = sparkle, 1 = Jedi Order emblem. Alternates on an interval.
   const [emblemIdx, setEmblemIdx] = useState(0);
+  // Large emblem interior: true = gradient-filled, false = outline-only.
+  // Auto-flipped every 2s while the badge is expanded; the opening
+  // frame is seeded by `nextEmblemStart` at click time.
+  const [emblemFilled, setEmblemFilled] = useState(false);
+  // Seed for `emblemFilled` on the NEXT click. Flipped each click so
+  // consecutive expansions open on alternating frames (outline, fill,
+  // outline, ...).
+  const [nextEmblemStart, setNextEmblemStart] = useState(false);
   const ringRef = useRef<HTMLSpanElement>(null);
   const rafRef = useRef<number>(0);
 
   const handleBadgeClick = useCallback(() => {
     if (badgeExpanded) return;
-    // One-shot smooth scroll to the top, mirroring how the navbar brand
-    // icon scrolls to `#hero`. Fires once on click — the user is then
-    // free to scroll wherever they like while the emblem is expanded;
-    // we no longer pin the viewport for the full 4s window.
-    if (typeof document !== "undefined") {
-      document.getElementById("hero")?.scrollIntoView({ behavior: "smooth" });
+    // Target `scrollY = 0` explicitly — `scrollIntoView("#hero")` can
+    // stall a few pixels short because the emblem's height animation
+    // shifts the layout during the scroll. A watchdog effect below
+    // corrects any residual offset.
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
+    // Seed `emblemFilled` BEFORE `badgeExpanded` so the outer
+    // AnimatePresence mounts the emblem with the intended opening
+    // value already in state — no crossfade on mount.
+    setEmblemFilled(nextEmblemStart);
+    setNextEmblemStart((s) => !s);
     setBadgeExpanded(true);
     // Hold the expanded state (and the large emblem) for 4s before collapsing.
     setTimeout(() => setBadgeExpanded(false), 4000);
+  }, [badgeExpanded, nextEmblemStart]);
+
+  // Scroll-settle watchdog — polls scrollY for up to 2s after a badge
+  // click, snapping to 0 if the smooth scroll stalls short because
+  // the emblem's concurrent height animation shifted the layout.
+  // Exits after 3 consecutive stable frames at y ≤ 0.5.
+  useEffect(() => {
+    if (!badgeExpanded) return;
+    let rafId = 0;
+    let stableFrames = 0;
+    const start = performance.now();
+    const tick = () => {
+      const y = window.scrollY;
+      const elapsed = performance.now() - start;
+      if (y <= 0.5) {
+        stableFrames++;
+        if (stableFrames >= 3) return;
+      } else {
+        stableFrames = 0;
+        if (elapsed > 700) window.scrollTo(0, 0);
+      }
+      if (elapsed > 2000) return;
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
   }, [badgeExpanded]);
 
+  // Flip the large emblem between outline and fill every 2s while expanded.
+  useEffect(() => {
+    if (!badgeExpanded) return;
+    const id = setInterval(() => setEmblemFilled((f) => !f), 2000);
+    return () => clearInterval(id);
+  }, [badgeExpanded]);
+
+  // Alternate the badge emblem between the sparkle and the Jedi emblem.
   useEffect(() => {
     const id = setInterval(
       () => setEmblemIdx((i) => (i === 0 ? 1 : 0)),
@@ -121,7 +169,11 @@ export default function Hero() {
             {/* Single ring — dark stop (#4f46e5) animated via --ring-dim to close/open gap */}
             <span ref={ringRef} className="badge-ring-layer badge-ring-default" aria-hidden="true" />
             <span className="relative z-[1] inline-flex items-center gap-2.5 rounded-full bg-[#0a0a0a] px-5 py-2 text-sm font-medium text-violet-400">
+              {/* Emblem container — two stacked SVGs crossfading via opacity.
+                  Bumped from 20px -> 24px so the detailed Jedi path (wings,
+                  central saber, 8-point starburst) reads clearly at this size. */}
               <span className="relative inline-flex h-6 w-6 shrink-0">
+                {/* Sparkle emblem — index 0 */}
                 <motion.svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -154,6 +206,11 @@ export default function Hero() {
                   <path d="M4 17v2" stroke="url(#sparkle-grad-anim)" />
                   <path d="M5 18H3" stroke="url(#sparkle-grad-anim)" />
                 </motion.svg>
+                {/* Jedi Order emblem — index 1. Uses the real path + nested
+                    transforms from Jedi_symbol.svg, so wings read as one
+                    continuous piece beneath the hilt. Separate viewBox so the
+                    gradient (gradientUnits=userSpaceOnUse, 590.6×600) spans
+                    the full glyph. */}
                 <motion.svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 590.60175 600"
@@ -208,14 +265,7 @@ export default function Hero() {
           </motion.span>
         </motion.div>
 
-        {/* Large Jedi Order emblem — slots in below the badge while it's
-            expanded, pushing the title and subsequent elements down. The
-            wrapper animates its `height` from 0 → auto so other elements
-            shift smoothly; on exit it collapses back, keeping the layout
-            in sync with the badge's expand/contract cycle. The emblem is
-            outline-only with a rotating gradient stroke (no fill) and a
-            violet glow — visually mirroring the badge ring without its
-            splitting effect. */}
+        {/* Large Jedi emblem — slots in below the badge while expanded. */}
         <AnimatePresence initial={false}>
           {badgeExpanded && (
             <motion.div
@@ -225,25 +275,29 @@ export default function Hero() {
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.5, ease: [0.22, 0.61, 0.36, 1] }}
               style={{ overflow: "hidden" }}
-              aria-hidden="true"
             >
               <div className="flex justify-center pb-6">
-                {/* `overflow="visible"` is required because the path's bottom
-                    wings sit right at viewBox y=600, and `vectorEffect=
-                    "non-scaling-stroke"` paints a constant 3px stroke whose
-                    lower half would otherwise be clipped at the viewBox
-                    edge — making the rounded wings look flat. */}
+                {/* `overflow="visible"` prevents the non-scaling 3px stroke
+                    from being clipped at the viewBox edge. */}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 590.60175 600"
                   overflow="visible"
                   className="jedi-emblem-glow h-40 w-40 md:h-56 md:w-56"
+                  aria-hidden="true"
                 >
                   <defs>
-                    {/* Wave-pattern gradient stops (light → dark → light) +
-                        rotation give the path stroke the same shimmering
-                        sweep the ring backdrop used to provide. No SMIL stop
-                        cycling — the rotation alone carries the effect. */}
+                    {/* Shared path — rendered twice via <use> below (fill +
+                        outline). No `fill` here: a presentation attribute
+                        on the referenced element overrides the <use>'s
+                        own, so each <use> sets its own fill explicitly. */}
+                    <path
+                      id="jedi-emblem-path"
+                      d="M 171.38577,-146.87499 C 173.42419,-149.84989 184.30064,-165.72444 184.30064,-165.72444 C 184.30064,-165.72444 176.01148,-142.92687 176.01148,-142.92687 C 176.01148,-142.92687 201.70967,-139.19518 201.70967,-139.19518 C 201.70967,-139.19518 176.01148,-135.4649 176.01148,-135.4649 C 176.01148,-135.4649 185.95925,-115.98313 185.95925,-115.98313 C 185.95925,-115.98313 173.54833,-129.03133 171.79458,-130.87454 C 172.51744,-102.62513 172.69532,-95.67241 172.69532,-95.67241 C 172.69532,-95.67241 236.11292,-125.10301 200.88072,-190.17991 C 200.88072,-190.17991 244.81796,-238.67709 205.02618,-268.5211 C 205.02618,-268.5211 273.00372,-227.48554 229.89613,-157.02046 C 229.89613,-157.02046 265.54245,-191.83746 246.89034,-227.07107 C 246.89034,-227.07107 279.22085,-181.47522 239.84355,-131.32014 C 239.84355,-131.32014 250.62062,-137.95316 260.15391,-163.23759 C 260.15391,-163.23759 253.19978,-87.965715 168.98591,-86.978323 C 168.98591,-86.968422 168.98591,-86.968422 168.98591,-86.968422 C 168.70511,-86.968422 168.42608,-86.968422 168.14635,-86.969841 C 167.86767,-86.968422 167.58759,-86.968422 167.3075,-86.968422 C 167.3075,-86.968422 167.3075,-86.968422 167.3075,-86.978323 C 83.093981,-87.965715 76.139847,-163.23759 76.139847,-163.23759 C 85.672786,-137.95316 96.449146,-131.32014 96.449146,-131.32014 C 57.07255,-181.47522 89.403065,-227.07107 89.403065,-227.07107 C 70.750247,-191.83746 106.39798,-157.02046 106.39798,-157.02046 C 63.289688,-227.48554 131.26651,-268.5211 131.26651,-268.5211 C 91.475437,-238.67709 135.41268,-190.17991 135.41268,-190.17991 C 100.18085,-125.10301 163.59843,-95.67241 163.59843,-95.67241 C 163.59843,-95.67241 163.77525,-102.62513 164.49811,-130.87454 C 162.74402,-129.03133 150.3338,-115.98313 150.3338,-115.98313 C 150.3338,-115.98313 160.28121,-135.4649 160.28121,-135.4649 C 160.28121,-135.4649 134.58373,-139.19518 134.58373,-139.19518 C 134.58373,-139.19518 160.28121,-142.92687 160.28121,-142.92687 C 160.28121,-142.92687 151.99312,-165.72444 151.99312,-165.72444 C 151.99312,-165.72444 162.8685,-149.84989 164.90693,-146.87499 C 165.83066,-182.95842 168.12088,-272.48974 168.1322,-272.91235 C 168.13645,-273.90504 168.13645,-273.9107 168.13645,-273.9107 C 168.13645,-273.9107 168.13645,-273.90964 168.14635,-273.49799 C 168.15731,-273.90964 168.15731,-273.9107 168.15731,-273.9107 C 168.15731,-273.9107 168.15731,-273.90504 168.16156,-272.91235 C 168.17995,-272.20612 170.46451,-182.87637 171.38577,-146.87499 C 171.38577,-146.87499 171.38577,-146.87499 171.38577,-146.87499 z"
+                    />
+                    {/* Shared gradient — mirrors `jedi-badge-grad` so the
+                        large emblem reads as a scaled-up badge glyph.
+                        Color-animated stops on a 4s loop + 10s rotation. */}
                     <linearGradient
                       id="jedi-emblem-grad"
                       gradientUnits="userSpaceOnUse"
@@ -252,36 +306,68 @@ export default function Hero() {
                       x2="590.60175"
                       y2="600"
                     >
-                      <stop offset="0%" stopColor="#8b5cf6" />
-                      <stop offset="25%" stopColor="#7c3aed" />
-                      <stop offset="50%" stopColor="#6366f1" />
-                      <stop offset="75%" stopColor="#7c3aed" />
-                      <stop offset="100%" stopColor="#8b5cf6" />
-                      {/* LARGE EMBLEM GRADIENT SPEED — `dur` controls how
-                          fast the stroke's shimmer sweeps around the crest.
-                          One full rotation per `dur`. Larger = slower. */}
+                      <stop offset="0%" stopColor="#8b5cf6">
+                        <animate attributeName="stop-color" values="#8b5cf6;#6366f1;#7c3aed;#8b5cf6" dur="4s" repeatCount="indefinite" />
+                      </stop>
+                      <stop offset="50%" stopColor="#7c3aed">
+                        <animate attributeName="stop-color" values="#7c3aed;#8b5cf6;#6366f1;#7c3aed" dur="4s" repeatCount="indefinite" />
+                      </stop>
+                      <stop offset="100%" stopColor="#6366f1">
+                        <animate attributeName="stop-color" values="#6366f1;#7c3aed;#8b5cf6;#6366f1" dur="4s" repeatCount="indefinite" />
+                      </stop>
                       <animateTransform
                         attributeName="gradientTransform"
                         type="rotate"
                         from="0 295 300"
                         to="360 295 300"
-                        dur="8s"
+                        dur="10s"
                         repeatCount="indefinite"
                       />
                     </linearGradient>
                   </defs>
                   <g transform="matrix(1.25,0,0,-1.25,831.48097,645.41878)">
                     <g transform="matrix(2.5676375,0,0,-2.5676375,-860.6843,-186.96836)">
-                      <path
-                        fill="none"
-                        fillRule="evenodd"
-                        stroke="url(#jedi-emblem-grad)"
-                        strokeWidth="3"
-                        strokeLinejoin="round"
-                        strokeLinecap="round"
-                        vectorEffect="non-scaling-stroke"
-                        d="M 171.38577,-146.87499 C 173.42419,-149.84989 184.30064,-165.72444 184.30064,-165.72444 C 184.30064,-165.72444 176.01148,-142.92687 176.01148,-142.92687 C 176.01148,-142.92687 201.70967,-139.19518 201.70967,-139.19518 C 201.70967,-139.19518 176.01148,-135.4649 176.01148,-135.4649 C 176.01148,-135.4649 185.95925,-115.98313 185.95925,-115.98313 C 185.95925,-115.98313 173.54833,-129.03133 171.79458,-130.87454 C 172.51744,-102.62513 172.69532,-95.67241 172.69532,-95.67241 C 172.69532,-95.67241 236.11292,-125.10301 200.88072,-190.17991 C 200.88072,-190.17991 244.81796,-238.67709 205.02618,-268.5211 C 205.02618,-268.5211 273.00372,-227.48554 229.89613,-157.02046 C 229.89613,-157.02046 265.54245,-191.83746 246.89034,-227.07107 C 246.89034,-227.07107 279.22085,-181.47522 239.84355,-131.32014 C 239.84355,-131.32014 250.62062,-137.95316 260.15391,-163.23759 C 260.15391,-163.23759 253.19978,-87.965715 168.98591,-86.978323 C 168.98591,-86.968422 168.98591,-86.968422 168.98591,-86.968422 C 168.70511,-86.968422 168.42608,-86.968422 168.14635,-86.969841 C 167.86767,-86.968422 167.58759,-86.968422 167.3075,-86.968422 C 167.3075,-86.968422 167.3075,-86.968422 167.3075,-86.978323 C 83.093981,-87.965715 76.139847,-163.23759 76.139847,-163.23759 C 85.672786,-137.95316 96.449146,-131.32014 96.449146,-131.32014 C 57.07255,-181.47522 89.403065,-227.07107 89.403065,-227.07107 C 70.750247,-191.83746 106.39798,-157.02046 106.39798,-157.02046 C 63.289688,-227.48554 131.26651,-268.5211 131.26651,-268.5211 C 91.475437,-238.67709 135.41268,-190.17991 135.41268,-190.17991 C 100.18085,-125.10301 163.59843,-95.67241 163.59843,-95.67241 C 163.59843,-95.67241 163.77525,-102.62513 164.49811,-130.87454 C 162.74402,-129.03133 150.3338,-115.98313 150.3338,-115.98313 C 150.3338,-115.98313 160.28121,-135.4649 160.28121,-135.4649 C 160.28121,-135.4649 134.58373,-139.19518 134.58373,-139.19518 C 134.58373,-139.19518 160.28121,-142.92687 160.28121,-142.92687 C 160.28121,-142.92687 151.99312,-165.72444 151.99312,-165.72444 C 151.99312,-165.72444 162.8685,-149.84989 164.90693,-146.87499 C 165.83066,-182.95842 168.12088,-272.48974 168.1322,-272.91235 C 168.13645,-273.90504 168.13645,-273.9107 168.13645,-273.9107 C 168.13645,-273.9107 168.13645,-273.90964 168.14635,-273.49799 C 168.15731,-273.90964 168.15731,-273.9107 168.15731,-273.9107 C 168.15731,-273.9107 168.15731,-273.90504 168.16156,-272.91235 C 168.17995,-272.20612 170.46451,-182.87637 171.38577,-146.87499 C 171.38577,-146.87499 171.38577,-146.87499 171.38577,-146.87499 z"
-                      />
+                      {/* Gradient fill — mounted only when `emblemFilled`
+                          is true. `fillRule="evenodd"` gives the hollow
+                          interior shapes. 400ms crossfade. */}
+                      <AnimatePresence initial={false}>
+                        {emblemFilled && (
+                          <motion.g
+                            key="jedi-large-emblem-fill"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.4, ease: "easeInOut" }}
+                          >
+                            <use
+                              href="#jedi-emblem-path"
+                              fill="url(#jedi-emblem-grad)"
+                              fillRule="evenodd"
+                            />
+                          </motion.g>
+                        )}
+                      </AnimatePresence>
+                      {/* Gradient outline — opacity is the inverse of the
+                          fill, so the two crossfade on the same 400ms.
+                          `initial` must be set (Framer reads undefined
+                          from a bare <g>, throwing "animate from
+                          undefined") and must mirror `animate` so
+                          fill-first mounts don't flash the outline. */}
+                      <motion.g
+                        initial={{ opacity: emblemFilled ? 0 : 1 }}
+                        animate={{ opacity: emblemFilled ? 0 : 1 }}
+                        transition={{ duration: 0.4, ease: "easeInOut" }}
+                      >
+                        <use
+                          href="#jedi-emblem-path"
+                          fill="none"
+                          stroke="url(#jedi-emblem-grad)"
+                          strokeWidth="3"
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      </motion.g>
                     </g>
                   </g>
                 </svg>
