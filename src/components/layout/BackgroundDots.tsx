@@ -8,7 +8,7 @@ const DOT_RADIUS  = 1;    // base dot radius
 const BASE_ALPHA  = 0.12; // resting dot opacity
 const GLOW_RADIUS = 16;  // px around cursor that illuminates dots
 const GLOW_ALPHA  = 0.38; // max additional alpha at cursor centre
-const AMBIENT_RADIUS = 240; // ambient halo radius around cursor
+const AMBIENT_RADIUS = 150; // ambient halo radius around cursor
 const AMBIENT_ALPHA_INNER = 0.018; // ambient halo opacity at centre
 const AMBIENT_ALPHA_MID   = 0.006; // ambient halo opacity at mid-stop
 
@@ -29,6 +29,9 @@ export default function BackgroundDots() {
 
     // Only run cursor glow on pointer devices (not touch-only)
     const hasPointer = window.matchMedia("(pointer: fine)").matches;
+    // Under reduced motion the grid still renders (it's static), but as a
+    // one-shot draw: no rAF loop and no animated cursor glow.
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     let animId: number;
 
@@ -43,9 +46,15 @@ export default function BackgroundDots() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (!settingsRef.current.grid) {
-        animId = requestAnimationFrame(draw);
+        if (!reduceMotion) animId = requestAnimationFrame(draw);
         return;
       }
+
+      // Dark dots in light mode (white dots are invisible on the light bg);
+      // also a touch more opaque there so the grid reads against the light bg.
+      const light = document.documentElement.classList.contains("light");
+      const rgb = light ? "10, 10, 10" : "255, 255, 255";
+      const baseA = light ? 0.24 : BASE_ALPHA;
 
       const { x: mx, y: my } = mouseRef.current;
       const W    = canvas.width;
@@ -54,7 +63,7 @@ export default function BackgroundDots() {
       const rows = Math.ceil(H / DOT_SPACING);
 
       // ── Pass 1: all base dots in a single batch ───────────────────────────
-      ctx.fillStyle = `rgba(255,255,255,${BASE_ALPHA})`;
+      ctx.fillStyle = `rgba(${rgb},${baseA})`;
       ctx.beginPath();
       for (let r = 0; r <= rows; r++) {
         const y = r * DOT_SPACING;
@@ -66,17 +75,18 @@ export default function BackgroundDots() {
       }
       ctx.fill();
 
-      if (!hasPointer || mx < -100) {
-        animId = requestAnimationFrame(draw);
+      if (reduceMotion || !hasPointer || mx < -100) {
+        if (!reduceMotion) animId = requestAnimationFrame(draw);
         return;
       }
 
       // ── Ambient white glow — tight radius, near-zero opacity, no hard edge ─
       // Uses a 3-stop gradient so the falloff is very gradual (no visible circle).
+      // Tightened (was r=420 / 0.028 / 0.010) — too prominent on high-contrast screens.
       const bgGrad = ctx.createRadialGradient(mx, my, 0, mx, my, AMBIENT_RADIUS);
-      bgGrad.addColorStop(0,   `rgba(255,255,255,${AMBIENT_ALPHA_INNER})`);
-      bgGrad.addColorStop(0.45,`rgba(255,255,255,${AMBIENT_ALPHA_MID})`);
-      bgGrad.addColorStop(1,   "rgba(255,255,255,0)");
+      bgGrad.addColorStop(0,   `rgba(${rgb},${AMBIENT_ALPHA_INNER})`);
+      bgGrad.addColorStop(0.45,`rgba(${rgb},${AMBIENT_ALPHA_MID})`);
+      bgGrad.addColorStop(1,   `rgba(${rgb},0)`);
       ctx.fillStyle = bgGrad;
       ctx.fillRect(
         Math.max(0, mx - AMBIENT_RADIUS),
@@ -102,7 +112,7 @@ export default function BackgroundDots() {
           const glow = t * t; // quadratic falloff
           if (glow < 0.01) continue;
 
-          ctx.fillStyle = `rgba(255,255,255,${BASE_ALPHA + glow * GLOW_ALPHA})`;
+          ctx.fillStyle = `rgba(${rgb},${baseA + glow * GLOW_ALPHA})`;
           ctx.beginPath();
           ctx.arc(x, y, DOT_RADIUS + glow * 0.6, 0, Math.PI * 2);
           ctx.fill();
@@ -124,10 +134,30 @@ export default function BackgroundDots() {
     let resizeTimer: ReturnType<typeof setTimeout>;
     const onResize = () => {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(resize, 150);
+      resizeTimer = setTimeout(() => {
+        resize();
+        if (reduceMotion) draw();
+      }, 150);
     };
 
     resize();
+
+    if (reduceMotion) {
+      // Static mode: draw once, then redraw only on resize or theme change.
+      draw();
+      const themeObserver = new MutationObserver(() => draw());
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+      window.addEventListener("resize", onResize);
+      return () => {
+        clearTimeout(resizeTimer);
+        themeObserver.disconnect();
+        window.removeEventListener("resize", onResize);
+      };
+    }
+
     animId = requestAnimationFrame(draw);
 
     document.addEventListener("mousemove", onMouseMove);
@@ -141,7 +171,9 @@ export default function BackgroundDots() {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("resize", onResize);
     };
-  }, []);
+    // settings.grid is a dep so the static (reduced-motion) path redraws when
+    // the grid is toggled; the animated path tolerates the cheap restart.
+  }, [settings.grid]);
 
   return (
     <canvas

@@ -10,6 +10,14 @@
   --accent-blue: #60a5fa;
   --accent-pink: #f472b6;
   --accent-purple: #a78bfa;
+  /* Lightest stop shared by the violet gradients (badge ring, hero name,
+     deep-link underline/ring). Toned down in dark mode so the bright end
+     doesn't glare on the near-black background — a midpoint between the pale
+     violet-300 and violet-400; light mode keeps the paler value below. */
+  --grad-light: #b6a0fc;
+  /* neofetch emblem gradient — mirrors the clicked-badge / expanded-logo
+     palette (#8b5cf6 → #7c3aed → #6366f1). Overridden darker in light mode. */
+  --ascii-emblem-gradient: linear-gradient(135deg, #8b5cf6, #7c3aed, #6366f1, #8b5cf6);
 }
 
 @theme inline {
@@ -32,11 +40,205 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Hide default cursor on devices with a fine pointer (mouse) */
+/* Solid panel that sits in front of the base background (and its dot grid /
+   starfield) but behind content and filled containers. Applied below the hero
+   so the grid shows only in the hero, then gives way to a clean surface that's
+   a touch lighter than --background (#0a0a0a). */
+.section-underlay {
+  /* Top edge fades in from transparent so the hero's starfield/grid dissolves
+     smoothly into the panel (smooth home → content transition); solid below. */
+  background-image: linear-gradient(to bottom, transparent 0, #0e0e10 190px);
+}
+
+/* Alternating section band — a slightly lighter version of the base underlay
+   with only the faintest purple tint (Shifat-style, very subtle). Applied to
+   Experience / Community / Interests. The top/bottom edges fade to the base
+   colour so adjacent sections blend smoothly instead of stepping. */
+.section-alt {
+  background-image: linear-gradient(
+    to bottom,
+    #0e0e10 0%,
+    #111014 14%,
+    #111014 86%,
+    #0e0e10 100%
+  );
+}
+
+/* Theme cross-fade: ThemeToggle wraps the light/dark class toggle in
+   document.startViewTransition, so the browser cross-fades a snapshot of the
+   whole page on the compositor — smooth with no per-node transition cost.
+   This just lengthens the default ~0.25s fade to a calmer 0.5s. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.5s;
+}
+
+/* ── "Light" mode — the easter-egg theme toggled by ThemeToggle (only after
+   the user clicks past the "embrace the dark side" joke). Backgrounds become
+   alternating shades of white / darker-white; white text becomes black. ── */
+html.light {
+  --background: #f3f3f5;
+  --foreground: #0a0a0a;
+  --muted: #52525b;
+  --border: #d4d4d8;
+  --card: #ffffff;
+  /* Deepen the emblem gradient on the white terminal for legible contrast,
+     while staying within the expanded-logo violet→indigo family. */
+  --ascii-emblem-gradient: linear-gradient(135deg, #6d28d9, #5b21b6, #4338ca, #6d28d9);
+  /* Keep the paler lightest stop in light mode (it reads fine on white). */
+  --grad-light: #c4b5fd;
+}
+html.light body {
+  background: var(--background);
+}
+html.light .section-underlay {
+  background-image: linear-gradient(to bottom, transparent 0, #f8f8fa 190px);
+}
+html.light .section-alt {
+  background-image: linear-gradient(
+    to bottom,
+    #f8f8fa 0%,
+    #e9e9ee 14%,
+    #e9e9ee 86%,
+    #f8f8fa 100%
+  );
+}
+/* Hardcoded white text → black. */
+html.light .text-white {
+  color: #0a0a0a;
+}
+/* Navbar / mobile-menu chrome (hardcoded near-black) → light. */
+html.light .bg-\[\#0a0a0a\]\/80,
+html.light .bg-\[\#0a0a0a\]\/95 {
+  background-color: rgba(243, 243, 245, 0.85) !important;
+}
+
+/* ── Light-mode readability fixes ──────────────────────────────────────────
+   Dark surfaces that weren't re-themed (so their now-black text disappeared),
+   plus violet/emerald accent text that goes low-contrast on a light surface. */
+
+/* Dark panel surfaces → light. Terminal window + hero badge pill (scoped so
+   the immersive quote overlay, which shares bg-[#0a0a0a], stays dark). */
+html.light .term-window,
+html.light .hero-badge {
+  background-color: #ffffff;
+}
+/* Side-nav hover label (bg-[#0e0e10]/90). */
+html.light .bg-\[\#0e0e10\]\/90 {
+  background-color: rgba(243, 243, 245, 0.95) !important;
+}
+/* Footer translucent panel → light. */
+html.light .bg-\[\#0e0e10\]\/40 {
+  background-color: rgba(248, 248, 250, 0.2) !important;
+}
+/* Settings gear + background panel + dev logo window (bg-[#111111]/xx). */
+html.light .bg-\[\#111111\]\/80,
+html.light .bg-\[\#111111\]\/90,
+html.light .bg-\[\#111111\]\/95 {
+  background-color: rgba(243, 243, 245, 0.92) !important;
+}
+/* QuoteOverlay "Terminal" jump button (dark-purple translucent surface). */
+html.light .bg-\[\#2e1065\]\/50 {
+  background-color: rgba(124, 58, 237, 0.1) !important;
+}
+html.light .bg-\[\#2e1065\]\/80 {
+  background-color: rgba(124, 58, 237, 0.18) !important;
+}
+
+/* Violet "pill"/accent text — light-violet → dark-violet so it reads on the
+   pale-violet pills and on light surfaces (skills chips, At-a-Glance chips,
+   hero co-op, Community EN/FR, Experience "Current", section kickers, badge,
+   terminal accents, dev phase buttons, Terminal jump button). */
+html.light .text-violet-200 { color: #5b21b6; }
+html.light .text-violet-300 { color: #6d28d9; }
+html.light .text-violet-400,
+html.light .text-violet-400\/70,
+html.light .text-violet-400\/80 { color: #7c3aed; }
+html.light .text-\[\#a78bfa\] { color: #6d28d9; }
+
+/* Terminal / quote prompt caret accent on the now-light terminal surface. */
+html.light .text-emerald-400 { color: #059669; }
+
+/* Dark/light warning popup — its base surface is a near-black violet
+   (bg-[#15101f]) that stays dark in light mode, so the (now-darkened) violet
+   text becomes unreadable. In light mode give it a pale-violet surface with
+   readable dark-violet text. Placed after the violet-text overrides so these
+   win. */
+html.light .theme-warning {
+  background-color: rgba(245, 243, 255, 0.97) !important;
+  border-color: rgba(124, 58, 237, 0.45) !important;
+  color: #4c1d95 !important;
+}
+html.light .theme-warning-sub {
+  color: #6d28d9 !important;
+}
+
+/* Projects-style hover outline (cards in Projects / At a Glance / Community /
+   Interests / Core Stack): violet-400/60 is too faint on white. Deepen to a
+   middle ground between the /60 outline and the full violet line. */
+html.light .hover\:border-violet-400\/60:hover {
+  border-color: rgba(124, 58, 237, 0.55) !important;
+}
+html.light .hover\:ring-violet-400\/40:hover {
+  --tw-ring-color: rgba(124, 58, 237, 0.4);
+}
+
+/* Tag pills (bg-white/5 — Experience / Projects / Community stacks, hero
+   education chip) are invisible on white cards; darken until discernible. */
+html.light .bg-white\/5 {
+  background-color: rgba(24, 24, 27, 0.07) !important;
+}
+
+/* Scrollbars (track is a hardcoded near-black globally) → light. */
+html.light ::-webkit-scrollbar-track { background: #e9e9ee; }
+html.light ::-webkit-scrollbar-thumb { background: #c4c4cc; }
+html.light ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+
+/* Contact "Connect with me" gradient-ring icon tiles — the saturated
+   indigo/violet frame reads as a hard square on the white card; soften it
+   to a pastel violet so it sits quietly against the light background. */
+html.light .icon-gradient-ring {
+  background-image: linear-gradient(to top, #a5b4fc, #c4b5fd, #ddd6fe);
+}
+
+/* Primary white CTAs (View Showcase / Send Message / Close) blend into the
+   light page. Keep them black-on-light, but define the edge with a border +
+   soft shadow so they read as buttons. Scoped to a/button so the white
+   custom-cursor dot and other bg-white surfaces are untouched. */
+html.light a.bg-white,
+html.light button.bg-white {
+  border: 1px solid #d4d4d8;
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.12);
+}
+
+/* Star Wars-style display face ("Star Jedi" by Boba Fonts) for the brand logo. */
+@font-face {
+  font-family: "Star Jedi";
+  src: url("/fonts/Starjedi.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* The "MA." brand mark is rendered as an inline SVG with a hollow fill and
+   an animated gradient stroke — see `ui/Logo.tsx`. Only the @font-face above
+   is needed here (the SVG <text> references the "Star Jedi" family). */
+
+/* Hide the default cursor only once the custom cursor is actually mounted —
+   CustomCursor adds `custom-cursor` to <html> after hydration. Pre-hydration
+   (or if JS fails) the native cursor stays visible instead of vanishing. */
 @media (pointer: fine) {
-  * {
+  html.custom-cursor * {
     cursor: none !important;
   }
+}
+
+/* Quote-loop immersion: while a quote loops full-screen (html.quote-looping,
+   set by QuoteOverlay), hide the settings gear and the custom cursor so only
+   the quote is on screen. */
+html.quote-looping .bg-settings-toggle,
+html.quote-looping .site-cursor {
+  display: none !important;
 }
 
 ::selection {
@@ -104,13 +306,13 @@ html {
 .badge-ring-default {
   background: conic-gradient(
     from 0deg,
-    #c4b5fd,
+    var(--grad-light, #b6a0fc),
     #7c3aed,
     #6366f1,
     var(--ring-dim, #4f46e5),
     #6366f1,
     #7c3aed,
-    #c4b5fd
+    var(--grad-light, #b6a0fc)
   );
 }
 
@@ -128,13 +330,13 @@ html {
   inset: -150%;
   background: conic-gradient(
     from 0deg,
-    #c4b5fd,
+    var(--grad-light, #b6a0fc),
     #7c3aed,
     #6366f1,
     #4f46e5,
     #6366f1,
     #7c3aed,
-    #c4b5fd
+    var(--grad-light, #b6a0fc)
   );
   animation: badge-ring-spin 6s linear infinite;
   z-index: -1;
@@ -197,7 +399,9 @@ html {
   animation: glow-pulse 3s ease-in-out infinite;
 }
 
-/* Large Jedi emblem — outer violet glow pulse, timed to match the badge */
+/* Large Jedi emblem — outer violet glow pulse, timed to match the badge.
+   Uses drop-shadow (not box-shadow) because the emblem is an irregular
+   SVG shape and we want the glow to follow the silhouette. */
 @keyframes jedi-emblem-glow-pulse {
   0%, 100% {
     filter:
@@ -245,6 +449,128 @@ html {
 .fade-in-up.visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Experience timeline — pulsing ring on the current role's node */
+@keyframes timeline-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0);
+  }
+}
+.timeline-pulse {
+  animation: timeline-pulse 2.4s ease-in-out infinite;
+}
+
+/* Terminal input caret colour (native caret handles the blink) */
+.terminal-caret {
+  caret-color: #a78bfa;
+}
+
+/* Deep-link highlight: a gradient underline drawn under an experience bullet
+   when a "What I do" quick-link targets it. The underline is a ::after band
+   that sweeps in (scaleX 0 → 1) on appear, then fades out (opacity → 0) when
+   the highlight ends — driven by the `point-highlight-out` class. Using a
+   pseudo-element keeps the bullet text itself untouched during the fade. */
+@keyframes point-underline-sweep {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.point-highlight {
+  position: relative;
+  padding-bottom: 2px;
+}
+.point-highlight::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, #8b5cf6, #7c3aed, #6366f1, var(--grad-light, #b6a0fc));
+  /* Wide background so the colours can flow across the line. */
+  background-size: 300% 100%;
+  transform-origin: left;
+  animation:
+    point-underline-sweep 0.4s ease-out,
+    hero-gradient-flow 3s ease-in-out infinite;
+  transition: opacity 0.6s ease;
+}
+.point-highlight-out::after {
+  opacity: 0;
+}
+
+/* Animated gradient ring trace — wraps a deep-linked project card with a
+   rotating conic-gradient border, masked down to a thin ring so the card
+   content shows through. The sweep angle is a registered custom property so it
+   animates smoothly; where @property is unsupported the ring is simply static. */
+@property --ring-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes ring-rotate {
+  to { --ring-angle: 360deg; }
+}
+.gradient-ring-trace {
+  border-radius: 0.75rem; /* matches the card's rounded-xl */
+  padding: 1.5px; /* ring thickness */
+  background: conic-gradient(
+    from var(--ring-angle),
+    #8b5cf6, #7c3aed, #6366f1, var(--grad-light, #b6a0fc), #6366f1, #7c3aed, #8b5cf6
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: ring-rotate 3s linear infinite;
+}
+
+/* Honour the OS-level reduced-motion preference: stop every decorative
+   animation (spins, glows, gradient flows, pulses) and reveal content
+   immediately instead of fading it in. Canvas effects (starfield, dot grid,
+   hyperspace) check the same media query in JS and stay idle. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .timeline-pulse,
+  .badge-ring-layer,
+  .glow-badge,
+  .jedi-emblem-glow,
+  .hero-gradient-text-breathe,
+  .gradient-text-animate,
+  .icon-gradient-ring,
+  .hero-gradient-ring-breathe,
+  .icon-nav-ring,
+  .icon-expanding,
+  .contact-heading-glow,
+  .animate-ping,
+  .animate-pulse {
+    animation: none !important;
+  }
+  .fade-in-up {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  /* Skip the sweep/flow but keep the underline visible (static, instant fade). */
+  .point-highlight::after {
+    animation: none;
+    transition: none;
+  }
+  /* Keep a static gradient ring (no rotation). */
+  .gradient-ring-trace {
+    animation: none;
+  }
 }
 
 /* Scrollbar styling */
@@ -300,12 +626,12 @@ html {
   color: #d4d4d8;
 }
 .prose-custom a {
-  color: #60a5fa;
+  color: #a78bfa;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 .prose-custom a:hover {
-  color: #93c5fd;
+  color: #c4b5fd;
 }
 .prose-custom ul,
 .prose-custom ol {
@@ -355,3 +681,11 @@ html {
   border-color: #27272a;
   margin: 2rem 0;
 }
+
+
+
+
+
+
+
+

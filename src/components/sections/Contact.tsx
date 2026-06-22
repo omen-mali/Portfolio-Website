@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import FadeInUp from "@/components/ui/FadeInUp";
+import SectionHeading from "@/components/ui/SectionHeading";
+
+const EMAIL = "momen.musa.ali@gmail.com";
+// mailto: URLs are length-limited in several browsers (~2000 chars), so cap
+// the message body well below that.
+const MESSAGE_MAX = 1500;
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -10,9 +16,11 @@ export default function Contact() {
     message: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitted) return; // guard against double-submission
     // Open mailto with pre-filled subject and body
     const subject = encodeURIComponent(
       `Portfolio Contact from ${formData.name}`
@@ -20,25 +28,31 @@ export default function Contact() {
     const body = encodeURIComponent(
       `From: ${formData.name} (${formData.email})\n\n${formData.message}`
     );
-    window.location.href = `mailto:momen.musa.ali@gmail.com?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:${EMAIL}?subject=${subject}&body=${body}`;
     setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 3000);
+    setTimeout(() => setSubmitted(false), 5000);
+  }
+
+  async function copyEmail() {
+    try {
+      await navigator.clipboard.writeText(EMAIL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable — the address is visible to copy manually */
+    }
   }
 
   return (
-    <section id="contact" className="px-6 py-24 md:py-32">
-      <div className="mx-auto max-w-4xl rounded-2xl bg-[#111111]/85 p-8 md:p-10">
-        <FadeInUp>
-          <h2 className="hero-gradient-text-breathe bg-[linear-gradient(135deg,#c4b5fd,#8b5cf6,#6366f1,#4f46e5,#6366f1,#8b5cf6,#c4b5fd)] bg-clip-text text-center text-3xl font-bold md:text-4xl text-transparent">
-            Get in Touch
-          </h2>
-          <p className="mx-auto mt-2 max-w-lg text-center text-lg text-muted">
-            Interested in working together or have a question? Feel free to
-            reach out.
-          </p>
-        </FadeInUp>
+    <section id="contact" className="px-6 py-20 md:px-12 md:py-28">
+      <div className="mx-auto max-w-[1700px]">
+        <SectionHeading
+          kicker="Contact"
+          title="Get in touch."
+          subtitle="Have a question or want to work together? Reach out."
+        />
 
-        <div className="mt-12 grid gap-12 md:grid-cols-2">
+        <div className="mx-auto mt-14 grid max-w-[92%] gap-12 md:grid-cols-2">
           {/* Contact form */}
           <FadeInUp delay={0.2}>
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -57,7 +71,7 @@ export default function Contact() {
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                  className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
                   placeholder="Your name"
                 />
               </div>
@@ -76,7 +90,7 @@ export default function Contact() {
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
-                  className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                  className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
                   placeholder="you@example.com"
                 />
               </div>
@@ -91,20 +105,47 @@ export default function Contact() {
                   id="message"
                   required
                   rows={5}
+                  maxLength={MESSAGE_MAX}
                   value={formData.message}
                   onChange={(e) =>
                     setFormData({ ...formData, message: e.target.value })
                   }
-                  className="w-full resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                  className="w-full resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
                   placeholder="What would you like to discuss?"
                 />
+                <p className="mt-1 text-right text-xs text-muted">
+                  {formData.message.length}/{MESSAGE_MAX}
+                </p>
               </div>
               <button
                 type="submit"
-                className="w-full rounded-full bg-white px-6 py-3 text-sm font-medium text-black transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                disabled={submitted}
+                aria-busy={submitted}
+                className="w-full rounded-full bg-white px-6 py-3 text-sm font-medium text-black transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
               >
-                {submitted ? "Opening email client..." : "Send Message"}
+                {submitted ? "Opening your email app…" : "Send Message"}
               </button>
+              {/* The mailto: handoff fails silently when no mail client is
+                  configured — always offer a direct, copyable fallback. */}
+              <div
+                role="status"
+                className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-muted"
+              >
+                {submitted && (
+                  <span>Nothing opened? </span>
+                )}
+                <span>Or email me directly:</span>
+                <button
+                  type="button"
+                  onClick={copyEmail}
+                  className="font-mono text-violet-400 transition-colors hover:text-violet-300"
+                >
+                  {EMAIL}
+                </button>
+                <span className={copied ? "text-emerald-400" : "text-muted/70"}>
+                  {copied ? "✓ copied" : "(click to copy)"}
+                </span>
+              </div>
             </form>
           </FadeInUp>
 

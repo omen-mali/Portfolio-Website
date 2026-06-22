@@ -22,6 +22,10 @@ export default function CustomCursor() {
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia("(pointer: fine)").matches) return;
 
+    // Only hide the native cursor once the replacement is actually live —
+    // globals.css scopes `cursor: none` to html.custom-cursor.
+    document.documentElement.classList.add("custom-cursor");
+
     const onMove = (e: MouseEvent) => {
       mouseX.set(e.clientX);
       mouseY.set(e.clientY);
@@ -49,6 +53,7 @@ export default function CustomCursor() {
     document.addEventListener("mouseover", onOver);
 
     return () => {
+      document.documentElement.classList.remove("custom-cursor");
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseleave", onLeave);
       document.removeEventListener("mouseenter", onEnter);
@@ -61,7 +66,7 @@ export default function CustomCursor() {
   const ringSize = hovering ? 40 : 32;
 
   return (
-    <div aria-hidden="true">
+    <div aria-hidden="true" className="site-cursor">
       {/* Outer glow ring */}
       <motion.div
         className="pointer-events-none fixed top-0 left-0 z-[9999] rounded-full border border-white/20 mix-blend-difference transition-[width,height,margin] duration-150"

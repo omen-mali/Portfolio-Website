@@ -5,25 +5,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import GradientText from "@/components/ui/GradientText";
 import Typewriter from "@/components/ui/Typewriter";
 import QuoteOverlay from "@/components/splash/QuoteOverlay";
+import { experiences } from "@/content/experience";
 
 const TYPEWRITER_PHRASES = [
   "Computer Systems Engineering",
-  "Embedded Systems & Software",
-  "C# .NET Development",
-  "QNX Neutrino RTOS",
-];
-
-const QUICK_SKILLS = [
-  "Computer Systems",
-  "Software Engineering",
-  "Embedded Platforms",
-  "Real-Time Operating Systems",
+  "Embedded & Real-Time Systems",
+  "Application Software Development",
+  "IT & Testing Platform Support",
 ];
 
 const BADGE_EMBLEM_INTERVAL = 3000; // ms between sparkle ↔ Jedi emblem swap
 const BADGE_EMBLEM_FADE = 0.6;      // crossfade duration (s)
 
 export default function Hero() {
+  const currentCoop = experiences.find((e) => e.current);
   const [badgeExpanded, setBadgeExpanded] = useState(false);
   // 0 = sparkle, 1 = Jedi Order emblem. Alternates on an interval.
   const [emblemIdx, setEmblemIdx] = useState(0);
@@ -37,6 +32,10 @@ export default function Hero() {
   const [nextEmblemStart, setNextEmblemStart] = useState(false);
   const ringRef = useRef<HTMLSpanElement>(null);
   const rafRef = useRef<number>(0);
+  // Once the expand settles, drop the container's `overflow:hidden` so the
+  // emblem's radiant glow isn't clipped into a hard rectangle (top/bottom).
+  // Re-clipped the instant we start collapsing so the height transition is clean.
+  const [emblemOpen, setEmblemOpen] = useState(false);
 
   const handleBadgeClick = useCallback(() => {
     if (badgeExpanded) return;
@@ -90,6 +89,17 @@ export default function Hero() {
     return () => clearInterval(id);
   }, [badgeExpanded]);
 
+  // Reveal the glow (overflow:visible) only after the 0.5s expand settles;
+  // re-clip immediately on collapse so the height animation stays contained.
+  useEffect(() => {
+    if (!badgeExpanded) {
+      setEmblemOpen(false);
+      return;
+    }
+    const t = setTimeout(() => setEmblemOpen(true), 540);
+    return () => clearTimeout(t);
+  }, [badgeExpanded]);
+
   // Alternate the badge emblem between the sparkle and the Jedi emblem.
   useEffect(() => {
     const id = setInterval(
@@ -99,7 +109,9 @@ export default function Hero() {
     return () => clearInterval(id);
   }, []);
 
-  // Animate the ring's dark stop between #4f46e5 (gap) and #c4b5fd (joined)
+  // Animate the ring's dark stop between #4f46e5 (gap) and the bright stop
+  // (joined). The bright stop matches the --grad-light token so it stays in
+  // sync with the toned-down gradients (and the active theme).
   useEffect(() => {
     const el = ringRef?.current;
     if (!el) return;
@@ -110,9 +122,24 @@ export default function Hero() {
     const duration  = joining ? 250 : 450;
     const startDelay = joining ? 0 : 700;
 
-    // #4f46e5 ↔ #c4b5fd
-    const from = joining ? [79, 70, 229] : [196, 181, 253];
-    const to   = joining ? [196, 181, 253] : [79, 70, 229];
+    // #4f46e5 (gap) ↔ --grad-light (joined). Parse the token to RGB; fall back
+    // to the dark-mode default if it can't be read.
+    const hexToRgb = (hex: string): [number, number, number] => {
+      const h = hex.trim().replace("#", "");
+      return [
+        parseInt(h.slice(0, 2), 16),
+        parseInt(h.slice(2, 4), 16),
+        parseInt(h.slice(4, 6), 16),
+      ];
+    };
+    const gradLight =
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--grad-light")
+        .trim() || "#b6a0fc";
+    const bright = hexToRgb(gradLight);
+
+    const from = joining ? [79, 70, 229] : bright;
+    const to   = joining ? bright : [79, 70, 229];
 
     let t0: number | null = null;
     function step(ts: number) {
@@ -157,6 +184,7 @@ export default function Hero() {
             onClick={handleBadgeClick}
             className="glow-badge relative inline-flex rounded-full p-[2px] cursor-pointer select-none overflow-hidden isolate"
             animate={{ scale: badgeExpanded ? 1.1 : 1 }}
+            whileHover={{ scale: badgeExpanded ? 1.1 : 1.04 }}
             transition={{
               scale: {
                 duration: badgeExpanded ? 0.5 : 0.7,
@@ -168,7 +196,7 @@ export default function Hero() {
           >
             {/* Single ring — dark stop (#4f46e5) animated via --ring-dim to close/open gap */}
             <span ref={ringRef} className="badge-ring-layer badge-ring-default" aria-hidden="true" />
-            <span className="relative z-[1] inline-flex items-center gap-2.5 rounded-full bg-[#0a0a0a] px-5 py-2 text-sm font-medium text-violet-400">
+            <span className="hero-badge relative z-[1] inline-flex items-center gap-2.5 rounded-full bg-[#0a0a0a] px-5 py-2 text-sm font-medium text-violet-400">
               {/* Emblem container — two stacked SVGs crossfading via opacity.
                   Bumped from 20px -> 24px so the detailed Jedi path (wings,
                   central saber, 8-point starburst) reads clearly at this size. */}
@@ -274,7 +302,7 @@ export default function Hero() {
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.5, ease: [0.22, 0.61, 0.36, 1] }}
-              style={{ overflow: "hidden" }}
+              style={{ overflow: emblemOpen ? "visible" : "hidden" }}
             >
               <div className="flex justify-center pb-6">
                 {/* `overflow="visible"` prevents the non-scaling 3px stroke
@@ -397,21 +425,27 @@ export default function Hero() {
           />
         </motion.div>
 
-        {/* Quick skill stack */}
+        {/* Status chips — education + current co-op */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.6 }}
-          className="mx-auto mt-6 flex flex-wrap items-center justify-center gap-2"
+          className="mx-auto mt-6 flex flex-wrap items-center justify-center gap-2.5"
         >
-          {QUICK_SKILLS.map((skill) => (
-            <span
-              key={skill}
-              className="rounded-full border border-border bg-white/5 px-3 py-1 text-xs text-muted"
-            >
-              {skill}
+          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white/5 px-3.5 py-1.5 text-xs text-muted">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M22 10L12 5 2 10l10 5 10-5z" />
+              <path d="M6 12v5c0 1 2.7 3 6 3s6-2 6-3v-5" />
+            </svg>
+            Carleton University · Computer Systems Engineering
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-full border border-violet-400/30 bg-violet-500/10 px-3.5 py-1.5 text-xs font-medium text-violet-300">
+            <span className="relative flex h-2 w-2" aria-hidden="true">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
             </span>
-          ))}
+            Co-op @ {currentCoop?.company ?? "Open to opportunities"}
+          </span>
         </motion.div>
 
         {/* CTA + quick links */}
@@ -419,13 +453,24 @@ export default function Hero() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8, duration: 0.6 }}
-          className="mt-8 flex flex-wrap items-center justify-center gap-4"
+          className="mt-7 flex flex-wrap items-center justify-center gap-4"
         >
           <a
             href="#showcase"
             className="rounded-full bg-white px-6 py-3 text-sm font-medium text-black transition-transform hover:scale-105"
           >
             View Showcase
+          </a>
+          <a
+            href="/resume.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:border-muted hover:bg-white/5"
+          >
+            Resume
+            <svg width="13" height="13" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2.5 9.5L9.5 2.5M9.5 2.5H4.5M9.5 2.5V7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </a>
           <a
             href="#contact"
@@ -440,7 +485,7 @@ export default function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.0, duration: 0.6 }}
-          className="mt-6 flex items-center justify-center gap-5"
+          className="mt-5 flex items-center justify-center gap-6"
         >
           <a
             href="https://github.com/omen-mali"
@@ -449,7 +494,7 @@ export default function Hero() {
             aria-label="GitHub"
             className="text-muted transition-colors hover:text-foreground"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
             </svg>
           </a>
@@ -460,7 +505,7 @@ export default function Hero() {
             aria-label="LinkedIn"
             className="text-muted transition-colors hover:text-foreground"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
             </svg>
           </a>
@@ -469,7 +514,7 @@ export default function Hero() {
             aria-label="Email"
             className="text-muted transition-colors hover:text-foreground"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <rect x="2" y="4" width="20" height="16" rx="2"/>
               <path d="M22 7l-10 7L2 7"/>
             </svg>

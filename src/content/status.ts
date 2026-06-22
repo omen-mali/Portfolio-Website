@@ -7,17 +7,17 @@ export interface StatusItem {
 export const statusItems: StatusItem[] = [
   {
     label: "Currently working on",
-    value: "Firmware & code generation tools at Epocal, Siemens Healthineers",
+    value: "Features and automation for the PA testing platform (Java) at the CRA",
     icon: "⚙️",
   },
   {
     label: "Currently learning",
-    value: "STM32 simulation tools & ARM Virtual Hardware",
+    value: "Test automation & Jenkins CI pipelines",
     icon: "📖",
   },
   {
     label: "Building",
-    value: "Wi-Fi Spectrum Analyzer on QNX RTOS (Raspberry Pi 4)",
+    value: "Personal Raspberry Pi 4 / STM32 embedded projects",
     icon: "📡",
   },
   {

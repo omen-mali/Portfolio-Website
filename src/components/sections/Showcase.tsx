@@ -1,379 +1,127 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { projects } from "@/content/projects";
 import { achievements } from "@/content/achievements";
-import { skillCategories } from "@/content/skills";
-import { experiences } from "@/content/experience";
+import { capabilities, type CapabilityLink } from "@/content/capabilities";
 import { statusItems } from "@/content/status";
 import FadeInUp from "@/components/ui/FadeInUp";
+import SectionHeading from "@/components/ui/SectionHeading";
+import { jumpAndHighlight } from "@/lib/highlight";
 
-const HIDDEN_COMPANIES = ["Royal Canadian Mounted Police (RCMP)", "Midterm Rental Properties"];
-const displayedExperiences = experiences.filter(
-  (e) => !HIDDEN_COMPANIES.includes(e.company)
+const subLabel =
+  "text-xs font-semibold uppercase tracking-widest text-violet-400/80";
+
+// Small down-right jump arrow — these links scroll further down the page.
+const jumpArrow = (
+  <svg
+    width="11"
+    height="11"
+    viewBox="0 0 12 12"
+    fill="none"
+    aria-hidden="true"
+    className="transition-transform group-hover:translate-y-0.5"
+  >
+    <path d="M6 2v7M3 6.5L6 9.5l3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
 );
 
-const TABS = ["Projects", "Experience", "Certifications", "Tech Stack"] as const;
-type Tab = (typeof TABS)[number];
+function jumpToEvidence(link: CapabilityLink) {
+  if (link.kind === "project") {
+    jumpAndHighlight("project", link.slug, `project-${link.slug}`);
+  } else {
+    jumpAndHighlight("experience", `${link.expId}-p${link.point}`);
+  }
+}
 
 export default function Showcase() {
-  const [activeTab, setActiveTab] = useState<Tab>("Projects");
-  const [expandedProject, setExpandedProject] = useState<string | null>(null);
-  const [expandedExperience, setExpandedExperience] = useState<string | null>(null);
-
   return (
-    <section id="showcase" className="px-6 py-24 md:py-32">
-      <div className="mx-auto max-w-4xl rounded-2xl bg-white/[0.03] p-8 md:p-10">
-        <FadeInUp>
-          <h2 className="text-3xl font-bold text-white md:text-4xl">
-            At a Glance
-          </h2>
-          <p className="mt-2 text-muted">
-            Projects, certifications, and tech stack in one place.
-          </p>
-        </FadeInUp>
+    <section id="showcase" className="px-6 py-20 md:px-12 md:py-28">
+      <div className="mx-auto max-w-[1700px]">
+        <SectionHeading
+          kicker="At a Glance"
+          title="A quick snapshot."
+          subtitle="The essentials — what I do, credentials, and what I'm working on."
+        />
 
-        {/* Tab buttons */}
-        {/* Tab buttons — on narrow phones (<sm), the 4 tab labels together
-            exceed the container's inner width because each button's
-            intrinsic min-width equals its text. We let the row wrap and
-            center, so any tab that won't fit on the first row drops to a
-            second row centered beneath. On sm+ the row stays single with
-            `flex-1` giving each tab equal width, matching the original
-            desktop look. */}
-        <FadeInUp delay={0.1}>
-          <div className="mt-8 flex flex-wrap justify-center gap-1 rounded-xl border border-border bg-card p-1 sm:flex-nowrap sm:justify-start">
-            {TABS.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`relative rounded-lg px-4 py-2.5 text-sm font-medium transition-colors sm:flex-1 ${
-                  activeTab === tab
-                    ? "text-foreground"
-                    : "text-muted hover:text-foreground"
-                }`}
+        {/* What I do — capability domains with one proof line each (the full
+            toolkit lives in the Skills section; this stays higher-level). */}
+        <FadeInUp delay={0.1} className="mx-auto mt-12 max-w-[88%]">
+          <h3 className={subLabel}>What I do</h3>
+          <div className="mt-6 grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {capabilities.map((c) => (
+              <div
+                key={c.title}
+                className="flex h-full flex-col rounded-xl border border-border bg-card p-5 transition-[border-color,box-shadow] hover:border-violet-400/60 hover:ring-1 hover:ring-violet-400/40"
               >
-                {activeTab === tab && (
-                  <motion.div
-                    layoutId="tab-indicator"
-                    className="absolute inset-0 rounded-lg bg-white/10"
-                    transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
-                  />
-                )}
-                <span className="relative z-10">{tab}</span>
-              </button>
+                <h4 className="text-sm font-semibold text-foreground">{c.title}</h4>
+                <p className="mt-2 text-[13px] leading-relaxed text-muted">{c.proof}</p>
+                <div className="mt-auto pt-3.5">
+                  <div className="flex flex-wrap gap-1.5">
+                    {c.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-white/5 px-2.5 py-0.5 text-xs text-muted"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  {/* Stylized footing — quick-links to the work that backs the
+                      claim. Each scrolls to and flashes its target. */}
+                  <div className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/60 pt-3">
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-400/70">
+                      Relevant
+                    </span>
+                    {c.links.map((link) => (
+                      <button
+                        key={link.label}
+                        onClick={() => jumpToEvidence(link)}
+                        className="group inline-flex items-center gap-1 text-xs font-medium text-violet-400 transition-colors hover:text-violet-300"
+                      >
+                        {link.label}
+                        {jumpArrow}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </FadeInUp>
 
-        {/* Tab content */}
-        <FadeInUp delay={0.2}>
-          <div className="mt-6 min-h-[320px]">
-            <AnimatePresence mode="wait">
-              {activeTab === "Projects" && (
-                <motion.div
-                  key="projects"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25 }}
-                  className="flex flex-col gap-4"
-                >
-                  <div className="grid gap-4 md:grid-cols-2">
-                  {projects.map((p) => {
-                    const isExpanded = expandedProject === p.slug;
-                    const hasRepo = p.github && p.github !== "#";
-                    return (
-                      <div
-                        key={p.slug}
-                        onClick={() => setExpandedProject(isExpanded ? null : p.slug)}
-                        className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted cursor-pointer select-none"
-                      >
-                        {/* Header row */}
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="text-sm font-semibold text-foreground leading-snug">
-                            {p.title}
-                          </h3>
-                          <motion.span
-                            animate={{ rotate: isExpanded ? 45 : 0 }}
-                            transition={{ duration: 0.2, ease: "easeInOut" }}
-                            className="mt-0.5 shrink-0 text-muted text-base leading-none"
-                            aria-hidden="true"
-                          >
-                            +
-                          </motion.span>
-                        </div>
-
-                        {/* Description — clamped when collapsed; whitespace-pre-line honours \n in content */}
-                        <p className={`mt-2 text-xs leading-relaxed text-muted whitespace-pre-line transition-all ${isExpanded ? "" : "line-clamp-3"}`}>
-                          {p.description}
-                        </p>
-
-                        {/* Animated expand row: contributors + View Repo */}
-                        <AnimatePresence initial={false}>
-                          {isExpanded && (
-                            <motion.div
-                              key="expanded-extras"
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.22, ease: "easeInOut" }}
-                              className="overflow-hidden"
-                            >
-                              {/* Contributors */}
-                              {p.contributors && p.contributors.length > 0 && (
-                                <div className="mt-3 flex flex-col gap-1 text-xs text-muted/70">
-                                  <span>Credits:</span>
-                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                    {p.contributors.map((c, i) => (
-                                      <span key={c.username}>
-                                        {c.name}{" "}
-                                        <a
-                                          href={c.href}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="font-mono text-violet-400 hover:text-violet-300 transition-colors"
-                                        >
-                                          @{c.username}
-                                        </a>
-                                        {i < p.contributors!.length - 1 && ","}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* View Repo */}
-                              <div className="mt-3">
-                                {hasRepo ? (
-                                  <a
-                                    href={p.github!}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors"
-                                  >
-                                    View Repo
-                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                                      <path d="M2.5 9.5L9.5 2.5M9.5 2.5H4.5M9.5 2.5V7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                    </svg>
-                                  </a>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted/50 cursor-default select-none">
-                                    Repo coming soon
-                                  </span>
-                                )}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-
-                        {/* Tags */}
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {p.tags.slice(0, 4).map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-muted"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  </div>
-                  <p className="text-center text-xs text-muted/40 italic">
-                    More to be added soon...
-                  </p>
-                </motion.div>
-              )}
-
-              {activeTab === "Experience" && (
-                <motion.div
-                  key="experience"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25 }}
-                  className="grid gap-4"
-                >
-                  {displayedExperiences.map((exp) => {
-                    const isExpanded = expandedExperience === exp.role;
-                    const hasLinks = exp.links && exp.links.length > 0;
-                    return (
-                      <div
-                        key={exp.role}
-                        onClick={() => setExpandedExperience(isExpanded ? null : exp.role)}
-                        className="rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted cursor-pointer select-none"
-                      >
-                        {/* Header row */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3 min-w-0">
-                            <h3 className="text-sm font-semibold text-foreground leading-snug">
-                              {exp.role}
-                            </h3>
-                            <span className="font-mono text-xs text-muted shrink-0">
-                              {exp.period}
-                            </span>
-                          </div>
-                          <motion.span
-                            animate={{ rotate: isExpanded ? 45 : 0 }}
-                            transition={{ duration: 0.2, ease: "easeInOut" }}
-                            className="mt-0.5 shrink-0 text-muted text-base leading-none"
-                            aria-hidden="true"
-                          >
-                            +
-                          </motion.span>
-                        </div>
-
-                        <p className="mt-0.5 text-xs font-medium text-[#a1a1aa]">
-                          {exp.company}
-                        </p>
-
-                        {/* Description — clamped when collapsed */}
-                        <p className={`mt-2 text-xs leading-relaxed text-muted transition-all ${isExpanded ? "" : "line-clamp-3"}`}>
-                          {exp.description}
-                        </p>
-
-                        {/* Animated links row */}
-                        <AnimatePresence initial={false}>
-                          {isExpanded && hasLinks && (
-                            <motion.div
-                              key="exp-links"
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.22, ease: "easeInOut" }}
-                              className="overflow-hidden"
-                            >
-                              <div className="mt-3 flex flex-wrap gap-3">
-                                {exp.links!.map((link) => (
-                                  <a
-                                    key={link.label}
-                                    href={link.href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors"
-                                  >
-                                    {link.label}
-                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                                      <path d="M2.5 9.5L9.5 2.5M9.5 2.5H4.5M9.5 2.5V7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                    </svg>
-                                  </a>
-                                ))}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-
-                        {/* Tags */}
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {exp.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-muted"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </motion.div>
-              )}
-
-              {activeTab === "Certifications" && (
-                <motion.div
-                  key="certs"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25 }}
-                  className="grid gap-4 md:grid-cols-2"
-                >
-                  {achievements.map((a) => (
-                    <div
-                      key={a.title}
-                      className="rounded-xl border border-border bg-card p-5"
-                    >
-                      <h3 className="text-sm font-semibold text-foreground">
-                        {a.title}
-                      </h3>
-                      <p className="mt-1 text-xs text-muted">{a.issuer}</p>
-                      <p className="mt-1 font-mono text-xs text-muted">
-                        {a.date}
-                      </p>
-                    </div>
-                  ))}
-                </motion.div>
-              )}
-
-              {activeTab === "Tech Stack" && (
-                <motion.div
-                  key="stack"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25 }}
-                  className="grid gap-4 md:grid-cols-2"
-                >
-                  {skillCategories.map((cat) => (
-                    <div
-                      key={cat.name}
-                      className="rounded-xl border border-border bg-card p-5"
-                    >
-                      <h3 className="mb-3 text-xs font-semibold tracking-widest text-muted uppercase">
-                        {cat.name}
-                      </h3>
-                      <div className="flex flex-wrap gap-1.5">
-                        {cat.skills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="rounded-full border border-border px-3 py-1 text-xs text-foreground transition-colors hover:border-muted hover:bg-white/5"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
+        {/* Certifications & Awards */}
+        <FadeInUp delay={0.15} className="mx-auto mt-12 max-w-[88%]">
+          <h3 className={subLabel}>Certifications & Awards</h3>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {achievements.map((a) => (
+              <div key={a.title} className="rounded-xl border border-border bg-card p-5 transition-[border-color,box-shadow] hover:border-violet-400/60 hover:ring-1 hover:ring-violet-400/40">
+                <h4 className="text-sm font-semibold text-foreground">{a.title}</h4>
+                <p className="mt-1.5 text-xs text-muted">{a.issuer}</p>
+                <p className="mt-1 font-mono text-xs text-muted">{a.date}</p>
+              </div>
+            ))}
           </div>
         </FadeInUp>
 
-        {/* What I'm up to — mini status */}
-        <FadeInUp delay={0.3}>
-          <div className="mt-12">
-            <h3 className="text-sm font-semibold tracking-widest text-muted uppercase">
-              What I&apos;m up to
-            </h3>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {statusItems.map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-start gap-3 rounded-xl border border-border bg-card p-4"
-                >
-                  <span className="text-xl" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  <div>
-                    <p className="text-xs font-semibold tracking-wider text-muted uppercase">
-                      {item.label}
-                    </p>
-                    <p className="mt-0.5 text-sm text-foreground">
-                      {item.value}
-                    </p>
-                  </div>
+        {/* What I'm up to */}
+        <FadeInUp delay={0.2} className="mx-auto mt-12 max-w-[88%]">
+          <h3 className={subLabel}>What I&apos;m up to</h3>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {statusItems.map((item) => (
+              <div
+                key={item.label}
+                className="flex items-start gap-4 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] hover:border-violet-400/60 hover:ring-1 hover:ring-violet-400/40"
+              >
+                <span className="text-xl" aria-hidden="true">
+                  {item.icon}
+                </span>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+                    {item.label}
+                  </p>
+                  <p className="mt-0.5 text-sm text-foreground">{item.value}</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </FadeInUp>
       </div>

@@ -40,12 +40,19 @@ export default function StarField() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Respect reduced motion: the starfield is pure decoration, so leave the
+    // canvas blank rather than running a perpetual animation loop.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     let animationId: number;
     let stars: Star[] = [];
     const shootingStars: ShootingStar[] = [];
+    // RGB triplet for stars — white on the dark theme, dark slate in light mode
+    // (white stars are invisible on the light background). Refreshed each frame.
+    let starRgb = "255, 255, 255";
 
     function resize() {
       if (!canvas) return;
@@ -118,8 +125,8 @@ export default function StarField() {
         const tailY = s.y - s.vy * (s.length / (Math.abs(s.vx) + Math.abs(s.vy)));
 
         const grad = ctx.createLinearGradient(tailX, tailY, s.x, s.y);
-        grad.addColorStop(0, `rgba(255, 255, 255, 0)`);
-        grad.addColorStop(1, `rgba(255, 255, 255, ${alpha})`);
+        grad.addColorStop(0, `rgba(${starRgb}, 0)`);
+        grad.addColorStop(1, `rgba(${starRgb}, ${alpha})`);
 
         ctx.beginPath();
         ctx.moveTo(tailX, tailY);
@@ -131,7 +138,7 @@ export default function StarField() {
         // Bright head dot
         ctx.beginPath();
         ctx.arc(s.x, s.y, 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.fillStyle = `rgba(${starRgb}, ${alpha})`;
         ctx.fill();
 
         // Advance
@@ -156,6 +163,9 @@ export default function StarField() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const bg = settingsRef.current;
+      starRgb = document.documentElement.classList.contains("light")
+        ? "63, 63, 70"
+        : "255, 255, 255";
 
       // Maybe spawn a shooting star
       if (
@@ -174,7 +184,7 @@ export default function StarField() {
         return;
       }
 
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = `rgb(${starRgb})`;
       for (const star of stars) {
         const twinkle =
           Math.sin(time * star.twinkleSpeed + star.twinkleOffset) * 0.3 + 0.7;

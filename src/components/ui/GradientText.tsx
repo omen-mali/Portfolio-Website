@@ -1,6 +1,6 @@
 /** Hero heading gradient: wide light→dark→light spectrum for fluid animation. */
 export const HERO_HEADING_GRADIENT_CLASS =
-  "bg-[linear-gradient(135deg,#c4b5fd,#8b5cf6,#6366f1,#4f46e5,#6366f1,#8b5cf6,#c4b5fd)]";
+  "bg-[linear-gradient(135deg,var(--grad-light,#b6a0fc),#8b5cf6,#6366f1,#4f46e5,#6366f1,#8b5cf6,var(--grad-light,#b6a0fc))]";
 
 interface GradientTextProps {
   children: React.ReactNode;

@@ -9,7 +9,11 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
-  const from = searchParams.get("from") || "/";
+  // Only allow same-site relative paths; reject absolute/protocol-relative
+  // URLs so ?from= can't be used as an open redirect to an external site.
+  const rawFrom = searchParams.get("from") || "/";
+  const from =
+    rawFrom.startsWith("/") && !rawFrom.startsWith("//") ? rawFrom : "/";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,7 +30,11 @@ function LoginForm() {
       router.push(from);
       router.refresh();
     } else {
-      setError("Incorrect password");
+      setError(
+        res.status === 429
+          ? "Too many attempts — please try again in 15 minutes."
+          : "Incorrect password",
+      );
       setLoading(false);
     }
   }

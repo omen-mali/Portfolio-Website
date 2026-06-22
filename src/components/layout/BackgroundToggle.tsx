@@ -10,7 +10,7 @@ export default function BackgroundToggle() {
   const starsDimmed = settings.hyperspace;
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
+    <div className="bg-settings-toggle fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
       {expanded && (
         <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-[#111111]/90 p-3 backdrop-blur-md">
           <label className={`flex cursor-pointer items-center gap-2 text-xs ${starsDimmed ? "text-muted/40" : "text-muted"}`}>
@@ -18,7 +18,7 @@ export default function BackgroundToggle() {
               type="checkbox"
               checked={settings.stars}
               onChange={() => toggle("stars")}
-              className="accent-blue-500"
+              className="accent-violet-500"
             />
             Stars
           </label>
@@ -27,7 +27,7 @@ export default function BackgroundToggle() {
               type="checkbox"
               checked={settings.shooting}
               onChange={() => toggle("shooting")}
-              className="accent-blue-500"
+              className="accent-violet-500"
             />
             Shooting Stars
           </label>
@@ -36,10 +36,11 @@ export default function BackgroundToggle() {
               type="checkbox"
               checked={settings.grid}
               onChange={() => toggle("grid")}
-              className="accent-blue-500"
+              className="accent-violet-500"
             />
             Grid
           </label>
+
         </div>
       )}
       <button

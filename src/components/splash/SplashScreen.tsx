@@ -56,6 +56,16 @@ export default function SplashScreen() {
     };
   }, [dismiss, visible]);
 
+  // Escape/Enter dismiss the splash too (it's already click-to-dismiss).
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.key === "Enter") dismiss();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [dismiss, visible]);
+
   return (
     <AnimatePresence>
       {visible && (

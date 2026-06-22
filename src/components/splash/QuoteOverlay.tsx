@@ -61,7 +61,12 @@ export default function QuoteOverlay() {
   const [loopInputValue, setLoopVal]  = useState("");
   const [loopActive, setLoopActive]   = useState(false);
   const [loopQuote, setLoopQuote]     = useState("");
+  // Loop immersion: chrome (gear, cursor) stays hidden for the whole loop; the
+  // exit hint appears only after a click, then hides again after 5s.
+  const [loopHint, setLoopHint] = useState(false);
+  const loopHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const { open, quote, mode, isFav } = overlay;
 
@@ -69,6 +74,42 @@ export default function QuoteOverlay() {
   useEffect(() => {
     if (showLoopInput) setTimeout(() => inputRef.current?.focus(), 50);
   }, [showLoopInput]);
+
+  // While the loop plays, hide the site chrome that would break immersion —
+  // settings gear and custom cursor (globals.css keys off html.quote-looping).
+  useEffect(() => {
+    if (!loopActive) return;
+    document.documentElement.classList.add("quote-looping");
+    return () => {
+      document.documentElement.classList.remove("quote-looping");
+      if (loopHintTimer.current) clearTimeout(loopHintTimer.current);
+      setLoopHint(false);
+    };
+  }, [loopActive]);
+
+  function revealLoopHint() {
+    setLoopHint(true);
+    if (loopHintTimer.current) clearTimeout(loopHintTimer.current);
+    loopHintTimer.current = setTimeout(() => setLoopHint(false), 5000);
+  }
+
+  // Full-screen overlays: Escape closes, focus moves into the dialog while it's
+  // open and returns to the previously focused element on close.
+  useEffect(() => {
+    if (!open && !loopActive) return;
+    const prevFocus = document.activeElement as HTMLElement | null;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOverlay((prev) => ({ ...prev, open: false }));
+      setLoopActive(false);
+    };
+    document.addEventListener("keydown", onKey);
+    dialogRef.current?.focus();
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      prevFocus?.focus?.();
+    };
+  }, [open, loopActive]);
 
   function show(type: Mode) {
     let q: string;
@@ -95,11 +136,22 @@ export default function QuoteOverlay() {
     setLoopVal("");
   }
 
+  function goToTerminal() {
+    document.getElementById("terminal")?.scrollIntoView({ behavior: "smooth" });
+  }
+
   return (
     <>
-      {/* ── Trigger buttons ─────────────────────────────────────────────── */}
-      <div className="mt-6 flex flex-col items-center gap-3">
-        {/* Row 1: Daily + Random + Favourite */}
+      {/* ── Trigger buttons — slightly demoted so they don't compete with the
+            primary hero CTAs; full strength on hover/focus. ──────────────── */}
+      <div className="mt-8 flex flex-col items-center gap-3 opacity-80 transition-opacity hover:opacity-100 focus-within:opacity-100">
+        {/* Stylized "Quotes" kicker above the trigger row */}
+        <span className="flex items-center gap-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.3em] text-violet-400/80">
+          <span className="h-px w-6 bg-gradient-to-r from-transparent to-violet-500/50" aria-hidden="true" />
+          Quotes
+          <span className="h-px w-6 bg-gradient-to-l from-transparent to-violet-500/50" aria-hidden="true" />
+        </span>
+        {/* Row 1: Daily + Random + Loop (+ Favourite when saved) */}
         <div className="flex items-center justify-center gap-3 flex-wrap">
           <button
             onClick={() => show("daily")}
@@ -124,6 +176,24 @@ export default function QuoteOverlay() {
             </svg>
             Random
           </button>
+          <button
+            onClick={() => setShowLoop((v) => !v)}
+            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs transition-colors ${
+              showLoopInput
+                ? "border-violet-500/50 text-violet-400 bg-violet-500/5"
+                : "border-border text-muted hover:border-muted hover:bg-white/5"
+            }`}
+            aria-label="Loop a custom quote"
+            aria-expanded={showLoopInput}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M17 2l4 4-4 4"/>
+              <path d="M3 11V9a4 4 0 014-4h14"/>
+              <path d="M7 22l-4-4 4-4"/>
+              <path d="M21 13v2a4 4 0 01-4 4H3"/>
+            </svg>
+            Loop
+          </button>
           {hasFav && (
             <button
               onClick={() => show("favourite")}
@@ -137,27 +207,6 @@ export default function QuoteOverlay() {
             </button>
           )}
         </div>
-
-        {/* Row 2: Loop button */}
-        <button
-          onClick={() => setShowLoop((v) => !v)}
-          className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs transition-colors ${
-            showLoopInput
-              ? "border-violet-500/50 text-violet-400 bg-violet-500/5"
-              : "border-border text-muted hover:border-muted hover:bg-white/5"
-          }`}
-          aria-label="Loop a custom quote"
-          aria-expanded={showLoopInput}
-        >
-          {/* repeat icon */}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M17 2l4 4-4 4"/>
-            <path d="M3 11V9a4 4 0 014-4h14"/>
-            <path d="M7 22l-4-4 4-4"/>
-            <path d="M21 13v2a4 4 0 01-4 4H3"/>
-          </svg>
-          Loop
-        </button>
 
         {/* Loop input panel */}
         <AnimatePresence>
@@ -196,6 +245,17 @@ export default function QuoteOverlay() {
             </motion.form>
           )}
         </AnimatePresence>
+
+        {/* Terminal jump — terminal-style palette in the site's purples
+            (dark-purple surface, light-purple text, emerald prompt caret). */}
+        <button
+          onClick={goToTerminal}
+          className="mt-1.5 flex items-center gap-2 rounded-full border border-[#a78bfa]/40 bg-[#2e1065]/50 px-4 py-2 font-mono text-xs text-[#a78bfa] transition-colors hover:border-[#a78bfa]/80 hover:bg-[#2e1065]/80"
+          aria-label="Jump to the interactive terminal"
+        >
+          <span className="text-emerald-400" aria-hidden="true">▸</span>
+          Terminal
+        </button>
       </div>
 
       {/* ── Quote overlay ──────────────────────────────────────────────────
@@ -213,11 +273,13 @@ export default function QuoteOverlay() {
         {open && (
           <motion.div
             key="quote-overlay"
+            ref={dialogRef}
+            tabIndex={-1}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a0a0a] px-8"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a0a0a] px-8 outline-none"
             onClick={() => setOverlay((prev) => ({ ...prev, open: false }))}
             role="dialog"
             aria-modal="true"
@@ -281,11 +343,14 @@ export default function QuoteOverlay() {
       {/* ── Loop overlay ─────────────────────────────────────────────────── */}
       {loopActive && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a0a] cursor-pointer select-none"
+          ref={dialogRef}
+          tabIndex={-1}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a0a] select-none outline-none"
+          onClick={revealLoopHint}
           onDoubleClick={() => setLoopActive(false)}
           role="dialog"
           aria-modal="true"
-          aria-label="Looping quote — double-click to exit"
+          aria-label="Looping quote — double-click or press Escape to exit"
         >
           <motion.blockquote
             animate={{ opacity: [0, 1, 1, 0] }}
@@ -302,15 +367,21 @@ export default function QuoteOverlay() {
             </p>
           </motion.blockquote>
 
-          {/* Hint — fades in once after the first cycle completes */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.35 }}
-            transition={{ delay: CYCLE + 0.5, duration: 1 }}
-            className="absolute bottom-10 font-mono text-[10px] tracking-widest uppercase text-muted pointer-events-none"
-          >
-            Double-click to exit
-          </motion.p>
+          {/* Exit hint — hidden for immersion until a click reveals it; hides
+              itself again after 5 seconds. */}
+          <AnimatePresence>
+            {loopHint && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.7 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="absolute bottom-10 font-mono text-xs tracking-widest uppercase text-muted pointer-events-none"
+              >
+                Double-click or press Esc to exit
+              </motion.p>
+            )}
+          </AnimatePresence>
         </div>
       )}
     </>

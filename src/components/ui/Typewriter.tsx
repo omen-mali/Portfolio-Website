@@ -21,6 +21,12 @@ export default function Typewriter({
   const stateRef = useRef({ text: "", phraseIndex: 0, isDeleting: false });
 
   useEffect(() => {
+    // Reduced motion: show the first phrase statically — no type/delete loop.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      if (spanRef.current) spanRef.current.textContent = phrases[0] ?? "";
+      return;
+    }
+
     let timeoutId: ReturnType<typeof setTimeout>;
 
     function tick() {
@@ -57,8 +63,13 @@ export default function Typewriter({
 
   return (
     <span className={className}>
-      <span ref={spanRef} />
-      <span className="animate-pulse">|</span>
+      {/* Static copy for assistive tech; the animated span re-announces
+          every keystroke otherwise. */}
+      <span className="sr-only">{phrases.join(". ")}</span>
+      <span aria-hidden="true">
+        <span ref={spanRef} />
+        <span className="animate-pulse">|</span>
+      </span>
     </span>
   );
 }

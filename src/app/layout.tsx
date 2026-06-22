@@ -23,26 +23,26 @@ const SITE_URL = "https://momenali.com";
 
 export const metadata: Metadata = {
   title: {
-    default: "Momen Ali | Software & Embedded Systems Developer",
+    default: "Momen Ali | Computer Systems Engineer",
     template: "%s | Momen Ali",
   },
   description:
-    "Embedded Software Developer & Systems Programmer specializing in QNX, Linux, C/C++, C#, Python, and Java.",
+    "Embedded Software Developer & Systems Programmer specializing in QNX, Linux, C#, Python, and Java.",
   metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",
     locale: "en_US",
     url: SITE_URL,
     siteName: "Momen Ali",
-    title: "Momen Ali | Software Engineer",
+    title: "Momen Ali | Computer Systems Engineer",
     description:
-      "Embedded Software Engineer & Systems Programmer specializing in QNX, Linux, C#, Python, and Java.",
+      "Embedded Software Developer & Systems Programmer specializing in QNX, Linux, C#, Python, and Java.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Momen Ali | Software Engineer",
+    title: "Momen Ali | Computer Systems Engineer",
     description:
-      "Embedded Software Engineer & Systems Programmer specializing in QNX, Linux, C#, Python, and Java.",
+      "Embedded Software Developer & Systems Programmer specializing in QNX, Linux, C#, Python, and Java.",
   },
   robots: {
     index: true,
@@ -65,7 +65,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
-      <body className="relative min-h-screen bg-background text-foreground">
+      <body className="relative min-h-screen bg-background text-foreground" suppressHydrationWarning>
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-black focus:outline-none"

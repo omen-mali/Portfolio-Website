@@ -42,7 +42,15 @@ export function getPostBySlug(slug: string): {
   meta: PostMeta;
   content: string;
 } {
+  // Reject anything that isn't a simple slug, and confirm the resolved path
+  // stays inside POSTS_DIR — prevents path traversal (e.g. "../../etc/passwd").
+  if (!/^[a-z0-9-]+$/i.test(slug)) {
+    throw new Error(`Invalid post slug: ${slug}`);
+  }
   const filePath = path.join(POSTS_DIR, `${slug}.mdx`);
+  if (!path.resolve(filePath).startsWith(path.resolve(POSTS_DIR) + path.sep)) {
+    throw new Error(`Invalid post slug: ${slug}`);
+  }
   const raw = fs.readFileSync(filePath, "utf-8");
   const { data, content } = matter(raw);
 
